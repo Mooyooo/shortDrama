@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Poster } from '@/components/poster';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
@@ -78,7 +79,7 @@ function ContinueRow({ series, progress }: { series: Series; progress: SeriesPro
       }
       style={({ pressed }) => pressed && styles.pressed}>
       <ThemedView type="backgroundElement" style={styles.row}>
-        <Poster series={series} />
+        <Poster series={series} width={54} />
         <View style={styles.rowText}>
           <ThemedText type="smallBold" numberOfLines={1}>
             {series.title}
@@ -101,7 +102,7 @@ function SavedRow({ series }: { series: Series }) {
       onPress={() => router.push({ pathname: '/series/[id]', params: { id: series.id } })}
       style={({ pressed }) => pressed && styles.pressed}>
       <ThemedView type="backgroundElement" style={styles.row}>
-        <Poster series={series} />
+        <Poster series={series} width={54} />
         <View style={styles.rowText}>
           <ThemedText type="smallBold" numberOfLines={1}>
             {series.title}
@@ -112,17 +113,6 @@ function SavedRow({ series }: { series: Series }) {
         </View>
       </ThemedView>
     </Pressable>
-  );
-}
-
-// No artwork yet: the first letter of the title stands in for a poster.
-function Poster({ series }: { series: Series }) {
-  return (
-    <View style={styles.poster}>
-      <ThemedText type="subtitle" style={styles.posterLetter}>
-        {series.title.replace(/^The /, '').charAt(0)}
-      </ThemedText>
-    </View>
   );
 }
 
@@ -148,17 +138,6 @@ const styles = StyleSheet.create({
   rowText: {
     flex: 1,
     gap: Spacing.one,
-  },
-  poster: {
-    width: 54,
-    height: 72,
-    borderRadius: Spacing.two,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FF3B5C',
-  },
-  posterLetter: {
-    color: '#fff',
   },
   track: {
     height: 3,
