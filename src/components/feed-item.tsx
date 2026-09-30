@@ -1,10 +1,17 @@
-import { useEvent } from 'expo';
-import { useVideoPlayer, VideoView } from 'expo-video';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEvent } from "expo";
+import { router } from "expo-router";
+import { useVideoPlayer, VideoView } from "expo-video";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import { Spacing } from '@/constants/theme';
-import type { Series } from '@/data/catalog';
+import { Spacing } from "@/constants/theme";
+import type { Series } from "@/data/catalog";
 
 type Props = {
   series: Series;
@@ -20,7 +27,9 @@ export function FeedItem({ series, height, isActive, bottomInset }: Props) {
   const player = useVideoPlayer(series.trailerUrl, (p) => {
     p.loop = true;
   });
-  const { status } = useEvent(player, 'statusChange', { status: player.status });
+  const { status } = useEvent(player, "statusChange", {
+    status: player.status,
+  });
 
   // Swiping away clears a tap-to-pause, so coming back always plays.
   if (wasActive !== isActive) {
@@ -48,7 +57,10 @@ export function FeedItem({ series, height, isActive, bottomInset }: Props) {
   }, [pausedByUser, player]);
 
   return (
-    <Pressable style={[styles.container, { height }]} onPress={() => setPausedByUser((v) => !v)}>
+    <Pressable
+      style={[styles.container, { height }]}
+      onPress={() => setPausedByUser((v) => !v)}
+    >
       <VideoView
         player={player}
         style={StyleSheet.absoluteFill}
@@ -56,18 +68,33 @@ export function FeedItem({ series, height, isActive, bottomInset }: Props) {
         nativeControls={false}
       />
 
-      {status === 'loading' && <ActivityIndicator style={styles.center} color="#fff" size="large" />}
+      {status === "loading" && (
+        <ActivityIndicator style={styles.center} color="#fff" size="large" />
+      )}
       {pausedByUser && <Text style={[styles.center, styles.playIcon]}>▶</Text>}
 
-      <View style={[styles.overlay, { paddingBottom: bottomInset + Spacing.four }]}>
+      <View
+        style={[styles.overlay, { paddingBottom: bottomInset + Spacing.four }]}
+      >
         <Text style={styles.title}>{series.title}</Text>
-        <Text style={styles.tags}>{series.tags.join(' · ')}</Text>
+        <Text style={styles.tags}>{series.tags.join(" · ")}</Text>
         <Text style={styles.synopsis} numberOfLines={2}>
           {series.synopsis}
         </Text>
         <Text style={styles.meta}>
           EP 1 / {series.episodeCount} · {series.freeEpisodes} free episodes
         </Text>
+        <Pressable
+          style={({ pressed }) => [
+            styles.watchButton,
+            pressed && styles.pressed,
+          ]}
+          onPress={() =>
+            router.push({ pathname: "/series/[id]", params: { id: series.id } })
+          }
+        >
+          <Text style={styles.watchLabel}>Watch full series ›</Text>
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -75,44 +102,60 @@ export function FeedItem({ series, height, isActive, bottomInset }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    backgroundColor: '#000',
+    width: "100%",
+    backgroundColor: "#000",
   },
   center: {
-    position: 'absolute',
-    alignSelf: 'center',
-    top: '45%',
+    position: "absolute",
+    alignSelf: "center",
+    top: "45%",
   },
   playIcon: {
-    color: 'rgba(255,255,255,0.85)',
+    color: "rgba(255,255,255,0.85)",
     fontSize: 64,
   },
   overlay: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
     paddingHorizontal: Spacing.three,
     gap: Spacing.one,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: "rgba(0,0,0,0.35)",
     paddingTop: Spacing.three,
   },
   title: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   tags: {
-    color: '#FFC857',
+    color: "#FFC857",
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   synopsis: {
-    color: 'rgba(255,255,255,0.9)',
+    color: "rgba(255,255,255,0.9)",
     fontSize: 14,
   },
   meta: {
-    color: 'rgba(255,255,255,0.7)',
+    color: "rgba(255,255,255,0.7)",
     fontSize: 12,
+  },
+  watchButton: {
+    alignSelf: "flex-start",
+    marginTop: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.four,
+    backgroundColor: "#FF3B5C",
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  watchLabel: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

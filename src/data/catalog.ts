@@ -61,3 +61,23 @@ export const SAMPLE_SERIES: Series[] = [
       'https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8',
   },
 ];
+
+export type Episode = {
+  number: number;
+  // Display only: the backend decides what a user may actually watch.
+  free: boolean;
+  videoUrl: string;
+};
+
+export function getSeries(id: string): Series | undefined {
+  return SAMPLE_SERIES.find((s) => s.id === id);
+}
+
+// No per-episode videos yet, so every episode reuses the trailer stream.
+export function getEpisodes(series: Series): Episode[] {
+  return Array.from({ length: series.episodeCount }, (_, i) => ({
+    number: i + 1,
+    free: i < series.freeEpisodes,
+    videoUrl: series.trailerUrl,
+  }));
+}
