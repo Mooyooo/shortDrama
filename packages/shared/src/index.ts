@@ -86,3 +86,21 @@ export type AdminSeries = {
 export type AdminSeriesPatch = Partial<
   Pick<AdminSeries, 'title' | 'synopsis' | 'freeEpisodes' | 'coinPrice' | 'coverUrl' | 'bannerUrl'>
 > & { status?: PublishStatus };
+
+// Viewers (the app).
+
+export type Viewer = {
+  id: string;
+  isGuest: boolean;
+  coins: number;
+};
+
+export type GuestSession = {
+  token: string;
+  viewer: Pick<Viewer, 'id' | 'isGuest'>;
+};
+
+export type UnlockResponse = {
+  status: 'unlocked' | 'already_unlocked' | 'free';
+  coins?: number;
+};
