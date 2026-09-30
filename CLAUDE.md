@@ -7,3 +7,5 @@ DramaBox-style iPhone app for vertical short-drama series (Expo / React Native, 
 - Plan: `docs/PLAN.md`. Current status and next steps: `docs/HANDOFF.md` — read it at the start of a new session.
 - No full Xcode on this Mac: test with Expo Go, build with EAS.
 - Coins, unlocks and purchases are decided by the backend, never trusted from the app.
+- npm workspaces monorepo: `apps/mobile` (Expo app), `apps/api` (Node/Express), `apps/admin` (React web admin), `packages/shared` (API types). Install from the repo root; run app commands inside `apps/mobile`.
+- Infrastructure and servers: `docs/INFRA.md` (kept out of git; ask the user if it's missing).
