@@ -44,3 +44,45 @@ export type SubtitleTrack = {
   url: string;
   isDefault: boolean;
 };
+
+// Admin API (staff only).
+
+export type AdminSeriesSummary = {
+  id: string;
+  slug: string;
+  title: string;
+  status: PublishStatus;
+  freeEpisodes: number;
+  coinPrice: number;
+  coverUrl: string | null;
+  episodeCount: number;
+  updatedAt: string;
+};
+
+export type AdminEpisode = {
+  id: string;
+  number: number;
+  title: string | null;
+  status: PublishStatus;
+  videoStatus: VideoStatus | null;
+  pendingVideoStatus: VideoStatus | null;
+  durationSeconds: string | null;
+};
+
+export type AdminSeries = {
+  id: string;
+  slug: string;
+  title: string;
+  synopsis: string;
+  status: PublishStatus;
+  freeEpisodes: number;
+  coinPrice: number;
+  coverUrl: string | null;
+  bannerUrl: string | null;
+  releaseAt: string | null;
+  episodes: AdminEpisode[];
+};
+
+export type AdminSeriesPatch = Partial<
+  Pick<AdminSeries, 'title' | 'synopsis' | 'freeEpisodes' | 'coinPrice' | 'coverUrl' | 'bannerUrl'>
+> & { status?: PublishStatus };
