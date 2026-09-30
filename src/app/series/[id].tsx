@@ -1,19 +1,15 @@
-import { Stack, useLocalSearchParams } from "expo-router";
-import { SymbolView } from "expo-symbols";
-import { useVideoPlayer, VideoView } from "expo-video";
-import {
-  ScrollView,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router, Stack, useIsFocused, useLocalSearchParams } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useEffect } from 'react';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { Spacing } from "@/constants/theme";
-import { getEpisodes, getSeries, type Series } from "@/data/catalog";
-import { useTheme } from "@/hooks/use-theme";
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Spacing } from '@/constants/theme';
+import { getEpisodes, getSeries, type Series } from '@/data/catalog';
+import { useTheme } from '@/hooks/use-theme';
 
 const EPISODE_COLUMNS = 6;
 
@@ -24,10 +20,8 @@ export default function SeriesDetailScreen() {
   if (!series) {
     return (
       <ThemedView style={styles.notFound}>
-        <Stack.Screen options={{ title: "" }} />
-        <ThemedText themeColor="textSecondary">
-          This series is not available.
-        </ThemedText>
+        <Stack.Screen options={{ title: '' }} />
+        <ThemedText themeColor="textSecondary">This series is not available.</ThemedText>
       </ThemedView>
     );
   }
@@ -39,22 +33,30 @@ function SeriesDetail({ series }: { series: Series }) {
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const cellSize =
-    (width - Spacing.three * 2 - Spacing.two * (EPISODE_COLUMNS - 1)) /
-    EPISODE_COLUMNS;
+    (width - Spacing.three * 2 - Spacing.two * (EPISODE_COLUMNS - 1)) / EPISODE_COLUMNS;
   const episodes = getEpisodes(series);
+  const play = (episodeNumber: number) =>
+    router.push({ pathname: '/watch/[id]', params: { id: series.id, ep: String(episodeNumber) } });
   // Muted looping trailer stands in for a poster until we have artwork.
   const player = useVideoPlayer(series.trailerUrl, (p) => {
     p.loop = true;
     p.muted = true;
-    p.play();
   });
+  const isFocused = useIsFocused();
+
+  // Pause the trailer while the full-screen player is on top.
+  useEffect(() => {
+    if (isFocused) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [isFocused, player]);
 
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: series.title }} />
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.four }}
-      >
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.four }}>
         <VideoView
           player={player}
           style={styles.poster}
@@ -72,6 +74,14 @@ function SeriesDetail({ series }: { series: Series }) {
             ))}
           </View>
           <ThemedText>{series.synopsis}</ThemedText>
+          <Pressable
+            onPress={() => play(1)}
+            style={({ pressed }) => [styles.playButton, pressed && styles.pressed]}>
+            <SymbolView name="play.fill" size={16} tintColor="#fff" />
+            <ThemedText type="smallBold" style={styles.playLabel}>
+              Play EP 1
+            </ThemedText>
+          </Pressable>
         </View>
 
         <View style={styles.info}>
@@ -80,21 +90,24 @@ function SeriesDetail({ series }: { series: Series }) {
           </ThemedText>
           <View style={styles.grid}>
             {episodes.map((episode) => (
-              <ThemedView
+              <Pressable
                 key={episode.number}
-                type="backgroundElement"
-                style={[styles.episode, { width: cellSize, height: cellSize }]}
-              >
-                <ThemedText type="smallBold">{episode.number}</ThemedText>
-                {!episode.free && (
-                  <SymbolView
-                    name="lock.fill"
-                    size={10}
-                    tintColor={theme.textSecondary}
-                    style={styles.lock}
-                  />
-                )}
-              </ThemedView>
+                onPress={() => play(episode.number)}
+                style={({ pressed }) => pressed && styles.pressed}>
+                <ThemedView
+                  type="backgroundElement"
+                  style={[styles.episode, { width: cellSize, height: cellSize }]}>
+                  <ThemedText type="smallBold">{episode.number}</ThemedText>
+                  {!episode.free && (
+                    <SymbolView
+                      name="lock.fill"
+                      size={10}
+                      tintColor={theme.textSecondary}
+                      style={styles.lock}
+                    />
+                  )}
+                </ThemedView>
+              </Pressable>
             ))}
           </View>
         </View>
@@ -109,13 +122,13 @@ const styles = StyleSheet.create({
   },
   notFound: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   poster: {
-    width: "100%",
+    width: '100%',
     aspectRatio: 16 / 9,
-    backgroundColor: "#000",
+    backgroundColor: '#000',
   },
   info: {
     paddingHorizontal: Spacing.three,
@@ -123,8 +136,8 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   tags: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.two,
   },
   tag: {
@@ -133,17 +146,33 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
   },
   grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.two,
   },
   episode: {
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: Spacing.two,
   },
+  playButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+    paddingVertical: Spacing.three,
+    borderRadius: Spacing.four,
+    backgroundColor: '#FF3B5C',
+  },
+  playLabel: {
+    color: '#fff',
+  },
+  pressed: {
+    opacity: 0.7,
+  },
   lock: {
-    position: "absolute",
+    position: 'absolute',
     top: Spacing.one,
     right: Spacing.one,
   },

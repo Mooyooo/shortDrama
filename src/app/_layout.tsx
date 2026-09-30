@@ -14,6 +14,10 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="series/[id]" options={{ headerBackButtonDisplayMode: 'minimal' }} />
+        <Stack.Screen
+          name="watch/[id]"
+          options={{ headerShown: false, presentation: 'fullScreenModal' }}
+        />
       </Stack>
     </ThemeProvider>
   );

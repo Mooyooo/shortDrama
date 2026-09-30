@@ -8,6 +8,8 @@ export type Series = {
   tags: string[];
   episodeCount: number;
   freeEpisodes: number;
+  // Sample price per locked episode; real prices come from the backend.
+  coinPrice: number;
   trailerUrl: string;
 };
 
@@ -19,6 +21,7 @@ export const SAMPLE_SERIES: Series[] = [
     tags: ['Revenge', 'Billionaire'],
     episodeCount: 80,
     freeEpisodes: 8,
+    coinPrice: 30,
     trailerUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
   },
   {
@@ -28,6 +31,7 @@ export const SAMPLE_SERIES: Series[] = [
     tags: ['Werewolf', 'Romance'],
     episodeCount: 95,
     freeEpisodes: 10,
+    coinPrice: 30,
     trailerUrl: 'https://test-streams.mux.dev/tos_ismc/main.m3u8',
   },
   {
@@ -37,6 +41,7 @@ export const SAMPLE_SERIES: Series[] = [
     tags: ['Secret identity', 'Family'],
     episodeCount: 72,
     freeEpisodes: 6,
+    coinPrice: 30,
     trailerUrl:
       'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8',
   },
@@ -47,6 +52,7 @@ export const SAMPLE_SERIES: Series[] = [
     tags: ['Romance', 'Family'],
     episodeCount: 64,
     freeEpisodes: 5,
+    coinPrice: 30,
     trailerUrl:
       'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
   },
@@ -57,6 +63,7 @@ export const SAMPLE_SERIES: Series[] = [
     tags: ['Action', 'Romance'],
     episodeCount: 88,
     freeEpisodes: 8,
+    coinPrice: 30,
     trailerUrl:
       'https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8',
   },
