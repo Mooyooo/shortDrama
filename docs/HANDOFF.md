@@ -1,6 +1,20 @@
-# Handoff — 2026-09-30 (morning)
+# Handoff — 2026-09-30 (afternoon)
 
 Read this first in a new session. Plan: [docs/PLAN.md](PLAN.md). Design docs: [Content Pipeline](https://claude.ai/code/artifact/8f2a7069-7db2-4fef-893e-59eb6f42512b), [System Architecture](https://claude.ai/code/artifact/f130be47-bed7-427c-b9fa-a1f281f991b3). Servers and Cloudflare: [docs/INFRA.md](INFRA.md), which is on disk but deliberately not committed (see below).
+
+## 2026-09-30 daytime work (committed locally, not pushed)
+
+| Commit | What |
+| --- | --- |
+| `92cff84` | Like / save / comments / share column on episodes and the feed; vertical series poster |
+| `5b563a4` | API: guest accounts, sessions (hashed tokens), `/v1/me`, coin unlocks, account deletion |
+| `2550183` | API: comments with Apple guideline 1.2 moderation (filter, reports, auto-hide, blocks, bans) |
+| `6071756` | Admin: Moderation page |
+| `d00d34a` | API: trailer links and uploads; `DEV_SAMPLE_VIDEOS` + `npm run seed:dev` for local testing |
+| `0208de6` | App ↔ API: data layer with sample fallback, signed episode links, unlocks, real comments |
+| `d036690` | App: Profile tab (coins, viewer ID, delete account); admin "Give coins" |
+
+API tests: 41 passing. The app bundles in both modes (sample data and API).
 
 ## Overnight work (all committed locally, none pushed)
 
@@ -24,7 +38,24 @@ Every commit passed lint and typecheck; the app bundles for iOS; the API tests r
 4. **Launch market and domain.** Needed for the API and admin subdomains.
 5. **Apple Developer Program** ($99 a year) for TestFlight and Sign in with Apple.
 
-## Try it on the phone
+## Try the app against the local API (from your Mac)
+
+```bash
+# terminal 1: the API with the five sample series (apps/api/.env has DEV_SAMPLE_VIDEOS=true)
+cd ~/projects/shortDrama/apps/api && npm run seed:dev && npm run dev
+# terminal 2: the app, pointed at the Mac's LAN address (was 192.168.1.84 on 2026-09-30)
+cd ~/projects/shortDrama/apps/mobile
+echo "EXPO_PUBLIC_API_URL=http://$(ipconfig getifaddr en0):3101" > .env
+npx expo start --clear
+```
+
+- `--clear` matters: the API address is built into the bundle, so a changed `.env` needs it.
+- Coins for testing: copy your viewer ID from the Profile tab, then in the admin (Moderation → Give coins), or
+  `curl -X POST -H 'Authorization: Bearer local-dev-token' -H 'Content-Type: application/json' -d '{"amount":100,"reference":"test-1"}' localhost:3101/v1/admin/users/<viewer id>/coins`.
+- Back to sample data: empty `apps/mobile/.env` and restart with `--clear`.
+- macOS may ask to allow incoming connections for `node`; allow it, or the phone can't reach the API.
+
+## Try it on the phone (sample data)
 
 ```bash
 cd ~/projects/shortDrama/apps/mobile && npx expo start
@@ -72,9 +103,10 @@ A smoke test through the admin's proxy worked: create a series, publish refused 
 
 ## Next steps
 
+0. The app name (shortlist in memory: Tizzy, Plotbite, Dramlet, Cliffline, Scandl, Sagaly), before the first TestFlight build.
 1. With the user: create shortDrama's resources on socialManager's infrastructure (list in `docs/INFRA.md`): databases on KVM4, enable Cloudflare Stream, signing key, webhook, R2 bucket, subdomains, then a deploy workflow and systemd unit for the API modelled on socialManager's.
-2. Switch the app from sample data to the API (`EXPO_PUBLIC_API_URL`), fetching a signed link before each episode.
-3. Viewer accounts: guest accounts first, then Sign in with Apple (needs the Apple membership and an EAS development build).
+2. Sign in with Apple, attached to the existing guest account (needs the Apple membership and an EAS development build).
+3. Sync watch progress, likes and My List to the API (they're still on the phone only).
 4. Phase 3: RevenueCat coin packs and VIP wired to `creditCoins` / `unlockWithCoins`, then AdMob.
 5. Later: EAS (`eas init`, build profiles, TestFlight).
 
