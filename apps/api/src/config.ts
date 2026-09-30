@@ -16,7 +16,14 @@ function required(name: string): string {
 export type Config = ReturnType<typeof loadConfig>;
 
 export function loadConfig() {
+  // Development only: videos whose uid is "dev-sample:<url>" play that public URL, so the whole app
+  // can be tried before Cloudflare Stream exists (see scripts/seed-dev.ts). Never in production.
+  const devSampleVideos = optional('DEV_SAMPLE_VIDEOS') === 'true';
+  if (devSampleVideos && process.env.NODE_ENV === 'production') {
+    throw new Error('DEV_SAMPLE_VIDEOS must not be enabled in production');
+  }
   return {
+    devSampleVideos,
     port: Number(optional('PORT') ?? 3101),
     databaseUrl: required('DATABASE_URL'),
     adminToken: optional('ADMIN_TOKEN'),

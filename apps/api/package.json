@@ -9,7 +9,8 @@
     "start": "node --env-file=.env dist/index.js",
     "migrate": "tsx --env-file=.env src/migrate.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "seed:dev": "tsx --env-file=.env scripts/seed-dev.ts"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

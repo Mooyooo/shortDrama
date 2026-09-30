@@ -20,7 +20,8 @@ export type CatalogSeries = {
   episodeCount: number;
   freeEpisodes: number;
   coinPrice: number;
-  trailerPlaybackId: string | null;
+  // A playable HLS link to the trailer, or null when there's none yet.
+  trailerUrl: string | null;
 };
 
 export type CatalogEpisode = {

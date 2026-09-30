@@ -1,6 +1,7 @@
 import type { CatalogEpisode, CatalogSeries, SeriesDetail } from '@shortdrama/shared';
 
 import type { Queryable } from '../../db.js';
+import type { Linker } from '../playback/links.js';
 
 // "Live" = published and past any scheduled release time. The app never sees anything else.
 const live = (alias: string) =>
@@ -29,7 +30,7 @@ const SERIES_SELECT = `
   FROM series s
   LEFT JOIN video_assets v ON v.id = s.trailer_video_id AND v.status = 'ready'`;
 
-function toSeries(row: SeriesRow): CatalogSeries {
+function toSeries(row: SeriesRow, link: Linker): CatalogSeries {
   return {
     id: row.id,
     slug: row.slug,
@@ -41,18 +42,23 @@ function toSeries(row: SeriesRow): CatalogSeries {
     episodeCount: row.episode_count,
     freeEpisodes: row.free_episodes,
     coinPrice: row.coin_price,
-    trailerPlaybackId: row.trailer_uid,
+    // Trailers are free promotion, so every viewer gets the same signed link (fine to cache).
+    trailerUrl: link(row.trailer_uid)?.url ?? null,
   };
 }
 
-export async function listSeries(db: Queryable): Promise<CatalogSeries[]> {
+export async function listSeries(db: Queryable, link: Linker): Promise<CatalogSeries[]> {
   const { rows } = await db.query<SeriesRow>(
     `${SERIES_SELECT} WHERE ${live('s')} ORDER BY s.published_at DESC NULLS LAST, s.title`,
   );
-  return rows.map(toSeries);
+  return rows.map((row) => toSeries(row, link));
 }
 
-export async function getSeriesDetail(db: Queryable, slug: string): Promise<SeriesDetail | null> {
+export async function getSeriesDetail(
+  db: Queryable,
+  link: Linker,
+  slug: string,
+): Promise<SeriesDetail | null> {
   const { rows } = await db.query<SeriesRow>(
     `${SERIES_SELECT} WHERE s.slug = $1 AND ${live('s')}`,
     [slug],
@@ -78,7 +84,7 @@ export async function getSeriesDetail(db: Queryable, slug: string): Promise<Seri
   );
 
   return {
-    ...toSeries(series),
+    ...toSeries(series, link),
     episodes: episodes.rows.map((e): CatalogEpisode => ({
       id: e.id,
       number: e.number,

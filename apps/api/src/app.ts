@@ -27,7 +27,7 @@ export function createApp(pool: pg.Pool, config: Config) {
   app.use(express.json({ limit: '100kb' }));
   app.use('/v1/auth', authRoutes(pool));
   app.use('/v1/me', meRoutes(pool));
-  app.use('/v1/catalog', catalogRoutes(pool));
+  app.use('/v1/catalog', catalogRoutes(pool, config));
   app.use('/v1/playback', playbackRoutes(pool, config));
   app.use('/v1', commentRoutes(pool));
   app.use('/v1/admin', adminRoutes(pool, config));

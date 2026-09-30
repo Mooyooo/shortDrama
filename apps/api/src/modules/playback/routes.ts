@@ -4,21 +4,17 @@ import type pg from 'pg';
 
 import type { Config } from '../../config.js';
 import { optionalViewer } from '../auth/sessions.js';
-import { hlsUrl, signStreamToken } from './stream-token.js';
+import { createLinker } from './links.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function playbackRoutes(pool: pg.Pool, config: Config) {
   const router = Router();
-  const { customerCode, signingKeyId, signingKeyPem, playbackTtlSeconds } = config.stream;
+  const link = createLinker(config);
 
   // Every episode, free or not, plays through a short-lived signed link.
   router.get('/episodes/:id', optionalViewer(pool), async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    if (!customerCode || !signingKeyId || !signingKeyPem) {
-      res.status(503).json({ ok: false, error: 'playback_not_configured' });
-      return;
-    }
     const episodeId = String(req.params.id);
     if (!UUID.test(episodeId)) {
       res.status(404).json({ ok: false, error: 'not_found' });
@@ -53,16 +49,12 @@ export function playbackRoutes(pool: pg.Pool, config: Config) {
       return;
     }
 
-    const expiresAt = new Date(Date.now() + playbackTtlSeconds * 1000);
-    const token = signStreamToken(
-      { keyId: signingKeyId, keyPemBase64: signingKeyPem },
-      episode.stream_uid,
-      expiresAt,
-    );
-    const playback: PlaybackLink = {
-      hlsUrl: hlsUrl(customerCode, token),
-      expiresAt: expiresAt.toISOString(),
-    };
+    const video = link(episode.stream_uid);
+    if (!video) {
+      res.status(503).json({ ok: false, error: 'playback_not_configured' });
+      return;
+    }
+    const playback: PlaybackLink = { hlsUrl: video.url, expiresAt: video.expiresAt.toISOString() };
     res.json({ ok: true, playback });
   });
 

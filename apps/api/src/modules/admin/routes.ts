@@ -191,6 +191,37 @@ export function adminRoutes(pool: pg.Pool, config: Config) {
     }
   });
 
+  // One-time upload link for the series trailer (the clip the For You feed and series page play).
+  // The catalog only shows a trailer once Stream reports it ready.
+  router.post('/series/:id/trailer/upload', async (req, res) => {
+    const { accountId, apiToken } = config.stream;
+    if (!accountId || !apiToken) {
+      res.status(503).json({ ok: false, error: 'stream_not_configured' });
+      return;
+    }
+    const series = await pool.query<{ slug: string }>('SELECT slug FROM series WHERE id = $1', [
+      req.params.id,
+    ]);
+    if (!series.rows[0]) {
+      res.status(404).json({ ok: false, error: 'not_found' });
+      return;
+    }
+    const upload = await createDirectUpload(accountId, apiToken, {
+      name: `${series.rows[0].slug}/trailer`,
+    });
+    await withTransaction(pool, async (client) => {
+      const asset = await client.query<{ id: string }>(
+        'INSERT INTO video_assets (stream_uid) VALUES ($1) RETURNING id',
+        [upload.uid],
+      );
+      await client.query(
+        'UPDATE series SET trailer_video_id = $2, updated_at = NOW() WHERE id = $1',
+        [req.params.id, asset.rows[0].id],
+      );
+    });
+    res.status(201).json({ ok: true, uploadUrl: upload.uploadURL, streamUid: upload.uid });
+  });
+
   // One-time Cloudflare Stream upload link for an episode's video; creates the episode if needed.
   router.post('/series/:id/episodes/:number/upload', async (req, res) => {
     const { accountId, apiToken } = config.stream;

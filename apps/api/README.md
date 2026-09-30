@@ -10,6 +10,7 @@ Needs Postgres (Homebrew `postgresql@15` works) and two local databases:
 createdb shortdrama_dev && createdb shortdrama_test
 cp .env.example .env          # set DATABASE_URL; ADMIN_TOKEN to use /v1/admin
 npm run migrate               # apply db/migrations to shortdrama_dev
+npm run seed:dev              # optional: the app's 5 sample series (set DEV_SAMPLE_VIDEOS=true)
 npm run dev                   # http://localhost:3101
 npm test                      # uses shortdrama_test (or TEST_DATABASE_URL), wiped each run
 ```
@@ -23,9 +24,12 @@ Cloudflare settings are optional locally. Routes that need them answer 503 until
 | `GET /health` | Checks the database connection |
 | `GET /v1/catalog/series` | Live series, cacheable for 60 s |
 | `GET /v1/catalog/series/:slug` | One live series with its episodes, free or locked |
-| `GET /v1/playback/episodes/:id` | Signed Cloudflare Stream HLS link; free episodes only until sign-in exists |
+| `POST /v1/auth/guest`, `POST /v1/auth/logout` | Guest account and session token |
+| `/v1/me` | Viewer, coins, account deletion, unlocks, blocks |
+| `GET /v1/playback/episodes/:id` | Signed Cloudflare Stream HLS link; free episodes, or ones this viewer unlocked |
+| `/v1/episodes/:id/comments`, `/v1/comments/:id` | Comments: list, post, delete own, report |
 | `POST /v1/webhooks/stream` | Cloudflare Stream webhook: signature check, then the inbox table |
-| `/v1/admin/*` | Series list, create, edit, publish (with checks), episode upload links. Bearer `ADMIN_TOKEN` for now |
+| `/v1/admin/*` | Series, publishing checks, episode and trailer upload links, comment moderation, bans. Bearer `ADMIN_TOKEN` for now |
 
 ## How money stays correct
 
@@ -33,7 +37,8 @@ Cloudflare settings are optional locally. Routes that need them answer 503 until
 
 ## Not built yet
 
-- Viewer sign-in (Sign in with Apple, guest accounts) and the routes that use the wallet
+- Sign in with Apple (guest accounts exist)
+- Buying coins (RevenueCat)
 - RevenueCat and AdMob webhooks
 - Staff accounts for the admin (the shared `ADMIN_TOKEN` is a stopgap)
 - Deployment: systemd unit, Caddy vhost and GitHub Actions deploy, following socialManager (see `docs/INFRA.md`)
