@@ -10,6 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { getEpisodes, getSeries, type Series } from '@/data/catalog';
 import { useTheme } from '@/hooks/use-theme';
+import { toggleSaved, useLibrary } from '@/lib/library';
 
 const EPISODE_COLUMNS = 6;
 
@@ -31,6 +32,10 @@ export default function SeriesDetailScreen() {
 function SeriesDetail({ series }: { series: Series }) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const library = useLibrary();
+  const progress = library.progress[series.id];
+  const isSaved = library.saved.includes(series.id);
+  const resumeEpisode = progress?.episode ?? 1;
   const { width } = useWindowDimensions();
   const cellSize =
     (width - Spacing.three * 2 - Spacing.two * (EPISODE_COLUMNS - 1)) / EPISODE_COLUMNS;
@@ -55,7 +60,20 @@ function SeriesDetail({ series }: { series: Series }) {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: series.title }} />
+      <Stack.Screen
+        options={{
+          title: series.title,
+          headerRight: () => (
+            <Pressable onPress={() => toggleSaved(series.id)} hitSlop={12}>
+              <SymbolView
+                name={isSaved ? 'bookmark.fill' : 'bookmark'}
+                size={22}
+                tintColor={theme.text}
+              />
+            </Pressable>
+          ),
+        }}
+      />
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.four }}>
         <VideoView
           player={player}
@@ -75,11 +93,11 @@ function SeriesDetail({ series }: { series: Series }) {
           </View>
           <ThemedText>{series.synopsis}</ThemedText>
           <Pressable
-            onPress={() => play(1)}
+            onPress={() => play(resumeEpisode)}
             style={({ pressed }) => [styles.playButton, pressed && styles.pressed]}>
             <SymbolView name="play.fill" size={16} tintColor="#fff" />
             <ThemedText type="smallBold" style={styles.playLabel}>
-              Play EP 1
+              {progress ? `Continue EP ${resumeEpisode}` : 'Play EP 1'}
             </ThemedText>
           </Pressable>
         </View>

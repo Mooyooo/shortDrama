@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View, type ViewToken } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,6 +10,7 @@ import { EpisodePlayer } from '@/components/episode-player';
 import { UnlockSheet } from '@/components/unlock-sheet';
 import { Spacing } from '@/constants/theme';
 import { getEpisodes, getSeries, type Episode, type Series } from '@/data/catalog';
+import { flushLibrary, getProgress, saveProgress } from '@/lib/library';
 
 const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 80 };
 
@@ -40,6 +41,14 @@ function Watch({ series, startEpisode }: { series: Series; startEpisode: number 
   const [activeIndex, setActiveIndex] = useState(startEpisode - 1);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [unlockFor, setUnlockFor] = useState<number | null>(null);
+  // Reopening the episode you were watching picks up where you stopped.
+  const [resumeAt] = useState(() => {
+    const saved = getProgress(series.id);
+    const nearEnd = saved != null && saved.seconds > saved.duration - 5;
+    return saved?.episode === startEpisode && !nearEnd ? saved.seconds : 0;
+  });
+
+  useEffect(() => flushLibrary, []);
 
   // FlatList throws if this callback changes identity after mount.
   const onViewableItemsChanged = useCallback(
@@ -47,10 +56,13 @@ function Watch({ series, startEpisode }: { series: Series; startEpisode: number 
       const first = viewableItems[0];
       if (first?.index == null) return;
       setActiveIndex(first.index);
+      if (getProgress(series.id)?.episode !== first.item.number) {
+        saveProgress(series.id, first.item.number, 0, 0);
+      }
       // Landing on a locked episode offers the unlock options straight away, as DramaBox does.
       if (!first.item.free) setUnlockFor(first.item.number);
     },
-    [],
+    [series.id],
   );
 
   const goTo = (episodeNumber: number, animated: boolean) => {
@@ -73,6 +85,10 @@ function Watch({ series, startEpisode }: { series: Series; startEpisode: number 
                 episode={item}
                 height={height}
                 isActive={index === activeIndex}
+                startAt={item.number === startEpisode ? resumeAt : 0}
+                onProgress={(seconds, duration) =>
+                  saveProgress(series.id, item.number, seconds, duration)
+                }
                 onEnd={() => {
                   if (index + 1 < episodes.length) goTo(item.number + 1, true);
                 }}
