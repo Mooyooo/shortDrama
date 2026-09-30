@@ -1,10 +1,11 @@
-import type { PublishStatus } from '@shortdrama/shared';
+import type { PublishStatus, ReviewComment } from '@shortdrama/shared';
 import { timingSafeEqual } from 'node:crypto';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import type pg from 'pg';
 
 import type { Config } from '../../config.js';
 import { withTransaction } from '../../db.js';
+import { DISPLAY_NAME } from '../comments/routes.js';
 import { createDirectUpload } from './stream-api.js';
 
 const STATUSES: PublishStatus[] = ['draft', 'ready', 'scheduled', 'published', 'unpublished'];
@@ -226,9 +227,103 @@ export function adminRoutes(pool: pg.Pool, config: Config) {
     res.status(201).json({ ok: true, uploadUrl: upload.uploadURL, streamUid: upload.uid });
   });
 
+  // Moderation queue: comments with reports newer than the last staff decision, oldest first,
+  // so nothing waits long (Apple expects timely action on reports).
+  router.get('/comments/review', async (_req, res) => {
+    const { rows } = await pool.query<{
+      id: string;
+      body: string;
+      status: ReviewComment['status'];
+      created_at: Date;
+      report_count: number;
+      reasons: ReviewComment['reasons'];
+      user_id: string;
+      name: string;
+      banned: boolean;
+      episode_id: string;
+      number: number;
+      series_title: string;
+    }>(
+      `SELECT c.id, c.body, c.status, c.created_at, c.report_count,
+              ARRAY(SELECT DISTINCT r.reason FROM comment_reports r WHERE r.comment_id = c.id
+                    ORDER BY r.reason) AS reasons,
+              u.id AS user_id, ${DISPLAY_NAME} AS name, u.banned_at IS NOT NULL AS banned,
+              e.id AS episode_id, e.number, s.title AS series_title
+       FROM comments c
+       JOIN users u ON u.id = c.user_id
+       JOIN episodes e ON e.id = c.episode_id
+       JOIN series s ON s.id = e.series_id
+       WHERE c.status <> 'removed'
+         AND EXISTS (SELECT 1 FROM comment_reports r WHERE r.comment_id = c.id
+                     AND r.created_at > COALESCE(c.reviewed_at, '-infinity'))
+       ORDER BY c.created_at
+       LIMIT 100`,
+    );
+    const comments: ReviewComment[] = rows.map((r) => ({
+      id: r.id,
+      body: r.body,
+      status: r.status,
+      createdAt: r.created_at.toISOString(),
+      reportCount: r.report_count,
+      reasons: r.reasons,
+      author: { id: r.user_id, name: r.name, banned: r.banned },
+      episode: { id: r.episode_id, number: r.number, seriesTitle: r.series_title },
+    }));
+    res.json({ ok: true, comments });
+  });
+
+  router.post('/comments/:id/decision', async (req, res) => {
+    const action = text(req.body as Record<string, unknown>, 'action', { required: true });
+    if (action !== 'keep' && action !== 'remove')
+      throw new BadRequest('action must be keep or remove');
+    const result = await pool.query(
+      `UPDATE comments
+       SET status = CASE WHEN $2 = 'keep' THEN 'visible' ELSE 'removed' END, reviewed_at = NOW()
+       WHERE id = $1`,
+      [req.params.id, action],
+    );
+    if (!result.rowCount) {
+      res.status(404).json({ ok: false, error: 'not_found' });
+      return;
+    }
+    res.json({ ok: true });
+  });
+
+  // A banned viewer can still watch but can't comment; their existing comments are removed.
+  router.post('/users/:id/ban', async (req, res) => {
+    const result = await withTransaction(pool, async (client) => {
+      const user = await client.query(
+        'UPDATE users SET banned_at = COALESCE(banned_at, NOW()) WHERE id = $1',
+        [req.params.id],
+      );
+      if (user.rowCount) {
+        await client.query(
+          `UPDATE comments SET status = 'removed', reviewed_at = NOW()
+           WHERE user_id = $1 AND status <> 'removed'`,
+          [req.params.id],
+        );
+      }
+      return user.rowCount;
+    });
+    if (!result) {
+      res.status(404).json({ ok: false, error: 'not_found' });
+      return;
+    }
+    res.json({ ok: true });
+  });
+
+  router.post('/users/:id/unban', async (req, res) => {
+    await pool.query('UPDATE users SET banned_at = NULL WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  });
+
   router.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
     if (err instanceof BadRequest) {
       res.status(400).json({ ok: false, error: err.message });
+      return;
+    }
+    if ((err as { code?: string }).code === '22P02') {
+      res.status(404).json({ ok: false, error: 'not_found' });
       return;
     }
     if ((err as { code?: string }).code === '23505') {

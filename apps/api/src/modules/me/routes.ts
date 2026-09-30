@@ -48,6 +48,40 @@ export function meRoutes(pool: pg.Pool) {
     res.json({ ok: true, episodeIds: rows.map((r) => r.episode_id) });
   });
 
+  // Blocking hides that person's comments from this viewer (Apple guideline 1.2).
+  router.post('/blocks/:userId', async (req, res) => {
+    const blockedId = String(req.params.userId);
+    if (!UUID.test(blockedId) || blockedId === res.locals.userId) {
+      res.status(400).json({ ok: false, error: 'bad user id' });
+      return;
+    }
+    const result = await pool.query(
+      `INSERT INTO user_blocks (blocker_id, blocked_id)
+       SELECT $1, id FROM users WHERE id = $2
+       ON CONFLICT DO NOTHING`,
+      [res.locals.userId, blockedId],
+    );
+    const exists =
+      result.rowCount ||
+      (await pool.query('SELECT 1 FROM users WHERE id = $1', [blockedId])).rowCount;
+    if (!exists) {
+      res.status(404).json({ ok: false, error: 'not_found' });
+      return;
+    }
+    res.json({ ok: true });
+  });
+
+  router.delete('/blocks/:userId', async (req, res) => {
+    const blockedId = String(req.params.userId);
+    if (UUID.test(blockedId)) {
+      await pool.query('DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2', [
+        res.locals.userId,
+        blockedId,
+      ]);
+    }
+    res.json({ ok: true });
+  });
+
   router.post('/unlocks/:episodeId', async (req, res) => {
     if (!UUID.test(req.params.episodeId)) {
       res.status(404).json({ ok: false, error: 'not_found' });

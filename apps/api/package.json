@@ -25,6 +25,7 @@
   "dependencies": {
     "@shortdrama/shared": "^0.0.0",
     "express": "^5.2.1",
+    "obscenity": "^0.4.6",
     "pg": "^8.23.0"
   }
 }

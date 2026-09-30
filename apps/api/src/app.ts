@@ -5,6 +5,7 @@ import type { Config } from './config.js';
 import { adminRoutes } from './modules/admin/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { catalogRoutes } from './modules/catalog/routes.js';
+import { commentRoutes } from './modules/comments/routes.js';
 import { meRoutes } from './modules/me/routes.js';
 import { playbackRoutes } from './modules/playback/routes.js';
 import { webhookRoutes } from './modules/webhooks/routes.js';
@@ -28,6 +29,7 @@ export function createApp(pool: pg.Pool, config: Config) {
   app.use('/v1/me', meRoutes(pool));
   app.use('/v1/catalog', catalogRoutes(pool));
   app.use('/v1/playback', playbackRoutes(pool, config));
+  app.use('/v1', commentRoutes(pool));
   app.use('/v1/admin', adminRoutes(pool, config));
 
   app.use((_req, res) => {

@@ -104,3 +104,26 @@ export type UnlockResponse = {
   status: 'unlocked' | 'already_unlocked' | 'free';
   coins?: number;
 };
+
+// Comments.
+
+export type EpisodeComment = {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: { id: string; name: string };
+  isMine: boolean;
+};
+
+export type ReportReason = 'spam' | 'abuse' | 'sexual' | 'spoiler' | 'other';
+
+export type ReviewComment = {
+  id: string;
+  body: string;
+  status: 'visible' | 'hidden' | 'removed';
+  createdAt: string;
+  reportCount: number;
+  reasons: ReportReason[];
+  author: { id: string; name: string; banned: boolean };
+  episode: { id: string; number: number; seriesTitle: string };
+};
