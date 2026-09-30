@@ -59,7 +59,8 @@ describe('image uploads', () => {
           }),
       ),
     );
-    await request(app()).post('/v1/admin/images/upload').set(admin).expect(500);
+    const res = await request(app()).post('/v1/admin/images/upload').set(admin).expect(502);
+    expect(res.body.error).toMatch(/not entitled.*needs Stream: Edit and Images: Edit/);
   });
 });
 

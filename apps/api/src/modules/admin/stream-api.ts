@@ -24,17 +24,11 @@ export async function createDirectUpload(
       }),
     },
   );
-  const body = (await response.json()) as {
-    success: boolean;
-    result?: DirectUpload;
-    errors?: { message: string }[];
-  };
-  if (!response.ok || !body.success || !body.result) {
-    const reason = body.errors?.map((e) => e.message).join('; ') || `HTTP ${response.status}`;
-    throw new Error(`Cloudflare Stream direct upload failed: ${reason}`);
-  }
-  return body.result;
+  return cloudflare<DirectUpload>(response, 'Stream upload');
 }
+
+// A failed Cloudflare call. Admin-only routes show its message to staff, so it says what to fix.
+export class CloudflareError extends Error {}
 
 async function cloudflare<T>(response: Response, what: string): Promise<T> {
   const body = (await response.json().catch(() => ({}))) as {
@@ -44,7 +38,11 @@ async function cloudflare<T>(response: Response, what: string): Promise<T> {
   };
   if (!response.ok || !body.success) {
     const reason = body.errors?.map((e) => e.message).join('; ') || `HTTP ${response.status}`;
-    throw new Error(`Cloudflare ${what} failed: ${reason}`);
+    const hint =
+      response.status === 401 || response.status === 403 || /authentication/i.test(reason)
+        ? ' Check the Cloudflare API token: it needs Stream: Edit and Images: Edit.'
+        : '';
+    throw new CloudflareError(`Cloudflare ${what} failed: ${reason}.${hint}`);
   }
   return body.result as T;
 }

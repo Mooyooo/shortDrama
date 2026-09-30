@@ -8,6 +8,7 @@ import { withTransaction } from '../../db.js';
 import { DISPLAY_NAME } from '../comments/routes.js';
 import { creditCoins } from '../wallet/wallet.js';
 import {
+  CloudflareError,
   createDirectUpload,
   createImageUpload,
   deleteCaptions,
@@ -459,6 +460,11 @@ export function adminRoutes(pool: pg.Pool, config: Config) {
   });
 
   router.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+    if (err instanceof CloudflareError) {
+      console.error(err.message);
+      res.status(502).json({ ok: false, error: err.message });
+      return;
+    }
     if (err instanceof BadRequest) {
       res.status(400).json({ ok: false, error: err.message });
       return;
