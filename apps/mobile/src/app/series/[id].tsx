@@ -37,6 +37,7 @@ function SeriesDetail({ series }: { series: Series }) {
   const isSaved = library.saved.includes(series.id);
   const resumeEpisode = progress?.episode ?? 1;
   const { width } = useWindowDimensions();
+  const posterWidth = Math.round(width * 0.4);
   const cellSize =
     (width - Spacing.three * 2 - Spacing.two * (EPISODE_COLUMNS - 1)) / EPISODE_COLUMNS;
   const episodes = getEpisodes(series);
@@ -75,22 +76,32 @@ function SeriesDetail({ series }: { series: Series }) {
         }}
       />
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.four }}>
-        <VideoView
-          player={player}
-          style={styles.poster}
-          contentFit="cover"
-          nativeControls={false}
-        />
+        {/* Vertical poster beside the details: everything in the app stays portrait. */}
+        <View style={styles.header}>
+          <VideoView
+            player={player}
+            style={[styles.poster, { width: posterWidth }]}
+            contentFit="cover"
+            nativeControls={false}
+          />
+          <View style={styles.headerText}>
+            <ThemedText type="subtitle" style={styles.title}>
+              {series.title}
+            </ThemedText>
+            <View style={styles.tags}>
+              {series.tags.map((tag) => (
+                <ThemedView key={tag} type="backgroundElement" style={styles.tag}>
+                  <ThemedText type="small">{tag}</ThemedText>
+                </ThemedView>
+              ))}
+            </View>
+            <ThemedText type="small" themeColor="textSecondary">
+              {series.episodeCount} episodes · first {series.freeEpisodes} free
+            </ThemedText>
+          </View>
+        </View>
 
         <View style={styles.info}>
-          <ThemedText type="subtitle">{series.title}</ThemedText>
-          <View style={styles.tags}>
-            {series.tags.map((tag) => (
-              <ThemedView key={tag} type="backgroundElement" style={styles.tag}>
-                <ThemedText type="small">{tag}</ThemedText>
-              </ThemedView>
-            ))}
-          </View>
           <ThemedText>{series.synopsis}</ThemedText>
           <Pressable
             onPress={() => play(resumeEpisode)}
@@ -103,9 +114,7 @@ function SeriesDetail({ series }: { series: Series }) {
         </View>
 
         <View style={styles.info}>
-          <ThemedText type="smallBold">
-            {series.episodeCount} episodes · first {series.freeEpisodes} free
-          </ThemedText>
+          <ThemedText type="smallBold">Episodes</ThemedText>
           <View style={styles.grid}>
             {episodes.map((episode) => (
               <Pressable
@@ -143,10 +152,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  header: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.three,
+  },
   poster: {
-    width: '100%',
-    aspectRatio: 16 / 9,
+    aspectRatio: 3 / 4,
+    borderRadius: Spacing.three,
+    overflow: 'hidden',
     backgroundColor: '#000',
+  },
+  headerText: {
+    flex: 1,
+    gap: Spacing.two,
+    justifyContent: 'flex-end',
+  },
+  title: {
+    fontSize: 24,
+    lineHeight: 30,
   },
   info: {
     paddingHorizontal: Spacing.three,

@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View, type ViewToken } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ActionRail } from '@/components/action-rail';
+import { CommentsSheet } from '@/components/comments-sheet';
 import { EpisodeDrawer } from '@/components/episode-drawer';
 import { EpisodePlayer } from '@/components/episode-player';
 import { UnlockSheet } from '@/components/unlock-sheet';
@@ -41,6 +43,7 @@ function Watch({ series, startEpisode }: { series: Series; startEpisode: number 
   const [activeIndex, setActiveIndex] = useState(startEpisode - 1);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [unlockFor, setUnlockFor] = useState<number | null>(null);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   // Reopening the episode you were watching picks up where you stopped.
   const [resumeAt] = useState(() => {
     const saved = getProgress(series.id);
@@ -136,6 +139,17 @@ function Watch({ series, startEpisode }: { series: Series; startEpisode: number 
         </Pressable>
       </View>
 
+      <View
+        style={[styles.railSlot, { bottom: insets.bottom + Spacing.six }]}
+        pointerEvents="box-none">
+        <ActionRail
+          seriesId={series.id}
+          seriesTitle={series.title}
+          episode={active?.number ?? startEpisode}
+          onComments={() => setCommentsOpen(true)}
+        />
+      </View>
+
       <EpisodeDrawer
         visible={drawerOpen}
         title={series.title}
@@ -146,6 +160,11 @@ function Watch({ series, startEpisode }: { series: Series; startEpisode: number 
           goTo(n, false);
         }}
         onClose={() => setDrawerOpen(false)}
+      />
+      <CommentsSheet
+        visible={commentsOpen}
+        episode={active?.number ?? startEpisode}
+        onClose={() => setCommentsOpen(false)}
       />
       <UnlockSheet
         visible={unlockFor != null}
@@ -193,6 +212,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.three,
     gap: Spacing.three,
+  },
+  railSlot: {
+    position: 'absolute',
+    right: 0,
   },
   iconButton: {
     width: 44,

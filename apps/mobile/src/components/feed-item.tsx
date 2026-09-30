@@ -4,6 +4,8 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ActionRail } from '@/components/action-rail';
+import { CommentsSheet } from '@/components/comments-sheet';
 import { Spacing } from '@/constants/theme';
 import type { Series } from '@/data/catalog';
 
@@ -17,6 +19,7 @@ type Props = {
 
 export function FeedItem({ series, height, isActive, bottomInset }: Props) {
   const [pausedByUser, setPausedByUser] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const [wasActive, setWasActive] = useState(isActive);
   const player = useVideoPlayer(series.trailerUrl, (p) => {
     p.loop = true;
@@ -65,20 +68,29 @@ export function FeedItem({ series, height, isActive, bottomInset }: Props) {
       {pausedByUser && <Text style={[styles.center, styles.playIcon]}>▶</Text>}
 
       <View style={[styles.overlay, { paddingBottom: bottomInset + Spacing.four }]}>
-        <Text style={styles.title}>{series.title}</Text>
-        <Text style={styles.tags}>{series.tags.join(' · ')}</Text>
-        <Text style={styles.synopsis} numberOfLines={2}>
-          {series.synopsis}
-        </Text>
-        <Text style={styles.meta}>
-          EP 1 / {series.episodeCount} · {series.freeEpisodes} free episodes
-        </Text>
-        <Pressable
-          style={({ pressed }) => [styles.watchButton, pressed && styles.pressed]}
-          onPress={() => router.push({ pathname: '/series/[id]', params: { id: series.id } })}>
-          <Text style={styles.watchLabel}>Watch full series ›</Text>
-        </Pressable>
+        <View style={styles.info}>
+          <Text style={styles.title}>{series.title}</Text>
+          <Text style={styles.tags}>{series.tags.join(' · ')}</Text>
+          <Text style={styles.synopsis} numberOfLines={2}>
+            {series.synopsis}
+          </Text>
+          <Text style={styles.meta}>
+            EP 1 / {series.episodeCount} · {series.freeEpisodes} free episodes
+          </Text>
+          <Pressable
+            style={({ pressed }) => [styles.watchButton, pressed && styles.pressed]}
+            onPress={() => router.push({ pathname: '/series/[id]', params: { id: series.id } })}>
+            <Text style={styles.watchLabel}>Watch full series ›</Text>
+          </Pressable>
+        </View>
+        <ActionRail
+          seriesId={series.id}
+          seriesTitle={series.title}
+          episode={1}
+          onComments={() => setCommentsOpen(true)}
+        />
       </View>
+      <CommentsSheet visible={commentsOpen} episode={1} onClose={() => setCommentsOpen(false)} />
     </Pressable>
   );
 }
@@ -102,10 +114,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: Spacing.three,
-    gap: Spacing.one,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingLeft: Spacing.three,
+    gap: Spacing.two,
     backgroundColor: 'rgba(0,0,0,0.35)',
     paddingTop: Spacing.three,
+  },
+  info: {
+    flex: 1,
+    gap: Spacing.one,
   },
   title: {
     color: '#fff',

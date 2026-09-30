@@ -14,10 +14,12 @@ export type Library = {
   progress: Record<string, SeriesProgress>;
   // Series ids, most recently saved first.
   saved: string[];
+  // Liked episodes as `${seriesId}:${episodeNumber}`.
+  likes: string[];
 };
 
 const KEY = 'library.v1';
-const EMPTY: Library = { progress: {}, saved: [] };
+const EMPTY: Library = { progress: {}, saved: [], likes: [] };
 // Progress ticks every second; writing to disk that often isn't needed.
 const WRITE_INTERVAL_MS = 5000;
 
@@ -81,6 +83,17 @@ export function toggleSaved(seriesId: string) {
     ? current.saved.filter((id) => id !== seriesId)
     : [seriesId, ...current.saved];
   update({ ...current, saved }, { force: true });
+}
+
+export const likeKey = (seriesId: string, episode: number) => `${seriesId}:${episode}`;
+
+export function toggleLiked(seriesId: string, episode: number) {
+  const current = load();
+  const key = likeKey(seriesId, episode);
+  const likes = current.likes.includes(key)
+    ? current.likes.filter((k) => k !== key)
+    : [...current.likes, key];
+  update({ ...current, likes }, { force: true });
 }
 
 // Flush throttled progress, e.g. when the player closes.
