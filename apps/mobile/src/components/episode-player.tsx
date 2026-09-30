@@ -36,11 +36,15 @@ export function EpisodePlayer({
   });
   const { status } = useEvent(player, 'statusChange', { status: player.status });
 
+  // The length comes from the load event, not from `player.duration`: the player is replaced when
+  // the signed link arrives, and a late event from the released one must not touch it.
+  const [duration, setDuration] = useState(0);
+  useEventListener(player, 'sourceLoad', (event) => setDuration(event.duration));
   useEventListener(player, 'playToEnd', onEnd);
   useEventListener(player, 'timeUpdate', ({ currentTime }) => {
-    if (player.duration > 0) {
-      setProgress(currentTime / player.duration);
-      onProgress?.(currentTime, player.duration);
+    if (duration > 0) {
+      setProgress(currentTime / duration);
+      onProgress?.(currentTime, duration);
     }
   });
 
