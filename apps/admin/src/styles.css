@@ -313,3 +313,66 @@ th {
   gap: 8px;
   flex-wrap: wrap;
 }
+
+.artwork {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.image-field {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.preview {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-cover {
+  width: 150px;
+  aspect-ratio: 3 / 4;
+}
+
+.preview-banner {
+  width: 260px;
+  aspect-ratio: 16 / 9;
+}
+
+.button-like {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.subtitles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+label.link {
+  color: var(--accent);
+  cursor: pointer;
+  display: inline;
+}

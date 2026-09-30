@@ -1,16 +1,23 @@
 import type { PublishStatus, ReviewComment } from '@shortdrama/shared';
 import { timingSafeEqual } from 'node:crypto';
-import { Router, type NextFunction, type Request, type Response } from 'express';
+import express, { Router, type NextFunction, type Request, type Response } from 'express';
 import type pg from 'pg';
 
 import type { Config } from '../../config.js';
 import { withTransaction } from '../../db.js';
 import { DISPLAY_NAME } from '../comments/routes.js';
 import { creditCoins } from '../wallet/wallet.js';
-import { createDirectUpload } from './stream-api.js';
+import {
+  createDirectUpload,
+  createImageUpload,
+  deleteCaptions,
+  uploadCaptions,
+} from './stream-api.js';
 
 const STATUSES: PublishStatus[] = ['draft', 'ready', 'scheduled', 'published', 'unpublished'];
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+// BCP 47 language tags as Stream expects them: en, es, pt-BR, zh-Hans.
+const LANGUAGE = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 
 class BadRequest extends Error {}
 
@@ -92,10 +99,11 @@ export function adminRoutes(pool: pg.Pool, config: Config) {
 
   router.get('/series/:id', async (req, res) => {
     const series = await pool.query(
-      `SELECT id, slug, title, synopsis, status, free_episodes AS "freeEpisodes",
-              coin_price AS "coinPrice", cover_url AS "coverUrl", banner_url AS "bannerUrl",
-              release_at AS "releaseAt"
-       FROM series WHERE id = $1`,
+      `SELECT s.id, s.slug, s.title, s.synopsis, s.status, s.free_episodes AS "freeEpisodes",
+              s.coin_price AS "coinPrice", s.cover_url AS "coverUrl", s.banner_url AS "bannerUrl",
+              s.release_at AS "releaseAt", t.status AS "trailerStatus"
+       FROM series s LEFT JOIN video_assets t ON t.id = s.trailer_video_id
+       WHERE s.id = $1`,
       [req.params.id],
     );
     if (!series.rows[0]) {
@@ -105,7 +113,9 @@ export function adminRoutes(pool: pg.Pool, config: Config) {
     const episodes = await pool.query(
       `SELECT e.id, e.number, e.title, e.status,
               v.status AS "videoStatus", pv.status AS "pendingVideoStatus",
-              v.duration_seconds AS "durationSeconds"
+              v.duration_seconds AS "durationSeconds",
+              ARRAY(SELECT st.language FROM subtitle_tracks st WHERE st.episode_id = e.id
+                    ORDER BY st.language) AS subtitles
        FROM episodes e
        LEFT JOIN video_assets v ON v.id = e.video_id
        LEFT JOIN video_assets pv ON pv.id = e.pending_video_id
@@ -190,6 +200,77 @@ export function adminRoutes(pool: pg.Pool, config: Config) {
     } else {
       res.json({ ok: true });
     }
+  });
+
+  // One-time upload link for a cover or banner image (Cloudflare Images). The browser uploads the
+  // file straight to Cloudflare, then saves the returned delivery address on the series.
+  router.post('/images/upload', async (_req, res) => {
+    const { accountId, apiToken } = config.stream;
+    if (!accountId || !apiToken) {
+      res.status(503).json({ ok: false, error: 'images_not_configured' });
+      return;
+    }
+    const upload = await createImageUpload(accountId, apiToken);
+    res
+      .status(201)
+      .json({ ok: true, uploadUrl: upload.uploadURL, deliveryUrl: upload.deliveryUrl });
+  });
+
+  // Subtitles: the WebVTT file is sent here (small), and forwarded to the episode's Stream video.
+  router.put(
+    '/episodes/:episodeId/subtitles/:language',
+    express.text({ type: ['text/vtt', 'text/plain'], limit: '1mb' }),
+    async (req, res) => {
+      const { accountId, apiToken } = config.stream;
+      if (!accountId || !apiToken) {
+        res.status(503).json({ ok: false, error: 'stream_not_configured' });
+        return;
+      }
+      const language = String(req.params.language);
+      if (!LANGUAGE.test(language))
+        throw new BadRequest('language must be a code like en or pt-BR');
+      const vtt = typeof req.body === 'string' ? req.body.replace(/^\uFEFF/, '') : '';
+      if (!vtt.startsWith('WEBVTT')) throw new BadRequest('the file must be WebVTT (.vtt)');
+
+      const { rows } = await pool.query<{ stream_uid: string }>(
+        `SELECT v.stream_uid FROM episodes e JOIN video_assets v ON v.id = e.video_id
+         WHERE e.id = $1 AND v.status = 'ready'`,
+        [req.params.episodeId],
+      );
+      if (!rows[0]) {
+        res.status(409).json({ ok: false, error: 'this episode has no ready video yet' });
+        return;
+      }
+      await uploadCaptions(accountId, apiToken, rows[0].stream_uid, language, vtt);
+      await pool.query(
+        `INSERT INTO subtitle_tracks (episode_id, language, url, is_default)
+         VALUES ($1, $2, $3, $2 = 'en')
+         ON CONFLICT (episode_id, language) DO UPDATE SET url = EXCLUDED.url`,
+        [req.params.episodeId, language, `stream:${rows[0].stream_uid}`],
+      );
+      res.json({ ok: true });
+    },
+  );
+
+  router.delete('/episodes/:episodeId/subtitles/:language', async (req, res) => {
+    const { accountId, apiToken } = config.stream;
+    const language = String(req.params.language);
+    if (!LANGUAGE.test(language)) throw new BadRequest('bad language');
+    const { rows } = await pool.query<{ stream_uid: string | null }>(
+      `DELETE FROM subtitle_tracks st USING episodes e
+       LEFT JOIN video_assets v ON v.id = e.video_id
+       WHERE st.episode_id = e.id AND e.id = $1 AND st.language = $2
+       RETURNING v.stream_uid`,
+      [req.params.episodeId, language],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ ok: false, error: 'not_found' });
+      return;
+    }
+    if (rows[0].stream_uid && accountId && apiToken) {
+      await deleteCaptions(accountId, apiToken, rows[0].stream_uid, language);
+    }
+    res.json({ ok: true });
   });
 
   // One-time upload link for the series trailer (the clip the For You feed and series page play).

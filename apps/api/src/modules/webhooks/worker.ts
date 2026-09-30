@@ -44,11 +44,18 @@ async function applyStreamEvent(client: pg.PoolClient, payload: StreamPayload) {
   if (rowCount === 0) throw new Error(`No video_assets row for stream uid ${payload.uid}`);
 
   if (videoStatus(payload) === 'ready') {
-    await client.query(
+    const swapped = await client.query<{ id: string }>(
       `UPDATE episodes SET video_id = pending_video_id, pending_video_id = NULL, updated_at = NOW()
-       WHERE pending_video_id = (SELECT id FROM video_assets WHERE stream_uid = $1)`,
+       WHERE pending_video_id = (SELECT id FROM video_assets WHERE stream_uid = $1)
+       RETURNING id`,
       [payload.uid],
     );
+    // Subtitles belonged to the old video on Stream, so the new one has none until re-uploaded.
+    if (swapped.rowCount) {
+      await client.query('DELETE FROM subtitle_tracks WHERE episode_id = ANY($1)', [
+        swapped.rows.map((r) => r.id),
+      ]);
+    }
   }
 }
 

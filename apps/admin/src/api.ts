@@ -49,6 +49,18 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   return json as T;
 }
 
+// Subtitle files are sent as text, not JSON.
+async function callText(method: string, path: string, text: string): Promise<object> {
+  const response = await fetch(`/v1/admin${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${getToken() ?? ''}`, 'Content-Type': 'text/vtt' },
+    body: text,
+  });
+  const json = await response.json().catch(() => ({ ok: false, error: `HTTP ${response.status}` }));
+  if (!response.ok || !json.ok) throw new ApiRequestError(response.status, json);
+  return json;
+}
+
 export const adminApi = {
   listSeries: () => call<{ series: AdminSeriesSummary[] }>('GET', '/series'),
   getSeries: (id: string) =>
@@ -68,6 +80,14 @@ export const adminApi = {
       amount,
       reference: crypto.randomUUID(),
     }),
+  createImageUpload: () =>
+    call<{ uploadUrl: string; deliveryUrl: string }>('POST', '/images/upload'),
+  createTrailerUpload: (seriesId: string) =>
+    call<{ uploadUrl: string; streamUid: string }>('POST', `/series/${seriesId}/trailer/upload`),
+  putSubtitles: (episodeId: string, language: string, vtt: string) =>
+    callText('PUT', `/episodes/${episodeId}/subtitles/${language}`, vtt),
+  deleteSubtitles: (episodeId: string, language: string) =>
+    call<object>('DELETE', `/episodes/${episodeId}/subtitles/${language}`),
   createUpload: (seriesId: string, episodeNumber: number) =>
     call<{ uploadUrl: string; streamUid: string }>(
       'POST',
@@ -75,7 +95,7 @@ export const adminApi = {
     ),
 };
 
-// Sends the file straight to Cloudflare Stream (basic upload, up to 200 MB), reporting progress.
+// Sends a file straight to Cloudflare (Stream videos up to 200 MB, or Images), reporting progress.
 export function uploadToStream(
   uploadUrl: string,
   file: File,

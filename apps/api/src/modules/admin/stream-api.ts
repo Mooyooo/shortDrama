@@ -35,3 +35,68 @@ export async function createDirectUpload(
   }
   return body.result;
 }
+
+async function cloudflare<T>(response: Response, what: string): Promise<T> {
+  const body = (await response.json().catch(() => ({}))) as {
+    success?: boolean;
+    result?: T;
+    errors?: { message: string }[];
+  };
+  if (!response.ok || !body.success) {
+    const reason = body.errors?.map((e) => e.message).join('; ') || `HTTP ${response.status}`;
+    throw new Error(`Cloudflare ${what} failed: ${reason}`);
+  }
+  return body.result as T;
+}
+
+// One-time upload link for Cloudflare Images (covers, banners). The same API token needs the
+// "Images: Edit" permission. The delivery address uses the account hash, which is part of the
+// upload link: https://upload.imagedelivery.net/<ACCOUNT_HASH>/<IMAGE_ID>
+// https://developers.cloudflare.com/images/upload-images/direct-creator-upload/
+export async function createImageUpload(accountId: string, apiToken: string) {
+  const form = new FormData();
+  form.append('requireSignedURLs', 'false');
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/images/v2/direct_upload`,
+    { method: 'POST', headers: { Authorization: `Bearer ${apiToken}` }, body: form },
+  );
+  const result = await cloudflare<{ id: string; uploadURL: string }>(response, 'image upload');
+  const accountHash = new URL(result.uploadURL).pathname.split('/').filter(Boolean)[0];
+  if (!accountHash) throw new Error('Cloudflare image upload: no account hash in the upload link');
+  return {
+    uploadURL: result.uploadURL,
+    deliveryUrl: `https://imagedelivery.net/${accountHash}/${result.id}/public`,
+  };
+}
+
+// Subtitles belong to one Stream video; Stream then lists them in the HLS manifest itself.
+// https://developers.cloudflare.com/stream/edit-videos/adding-captions/
+export async function uploadCaptions(
+  accountId: string,
+  apiToken: string,
+  videoUid: string,
+  language: string,
+  vtt: string,
+) {
+  const form = new FormData();
+  form.append('file', new Blob([vtt], { type: 'text/vtt' }), `${language}.vtt`);
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/${videoUid}/captions/${language}`,
+    { method: 'PUT', headers: { Authorization: `Bearer ${apiToken}` }, body: form },
+  );
+  await cloudflare(response, 'caption upload');
+}
+
+export async function deleteCaptions(
+  accountId: string,
+  apiToken: string,
+  videoUid: string,
+  language: string,
+) {
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/${videoUid}/captions/${language}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${apiToken}` } },
+  );
+  // Already gone on Cloudflare's side is fine.
+  if (response.status !== 404) await cloudflare(response, 'caption delete');
+}

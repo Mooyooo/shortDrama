@@ -5,6 +5,7 @@ import { createApp } from '../src/app.js';
 import { loadConfig, type Config } from '../src/config.js';
 import { createPool } from '../src/db.js';
 import { migrate } from '../src/migrate.js';
+import { signStreamWebhook } from '../src/modules/webhooks/stream-signature.js';
 
 export const ADMIN_TOKEN = 'test-admin-token';
 export const WEBHOOK_SECRET = 'test-webhook-secret';
@@ -108,4 +109,8 @@ export async function seedUser(pool: pg.Pool) {
     'INSERT INTO users DEFAULT VALUES RETURNING id',
   );
   return rows[0].id;
+}
+
+export function signStreamWebhookFor(rawBody: string) {
+  return signStreamWebhook(WEBHOOK_SECRET, Math.floor(Date.now() / 1000), rawBody);
 }

@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { adminApi } from './api';
 import { EpisodeUploader } from './EpisodeUploader';
+import { ArtworkCard, SubtitlesCell, TrailerCard } from './Media';
 import { describeError, useLoad } from './useLoad';
 
 export function SeriesEditor({ id }: { id: string }) {
@@ -25,6 +26,10 @@ export function SeriesEditor({ id }: { id: string }) {
         <DetailsForm key={series.id + series.title} series={series} onSaved={reload} />
         <PublishPanel series={series} problems={publishProblems} onChanged={reload} />
       </div>
+      <div className="columns">
+        <ArtworkCard series={series} onChanged={reload} />
+        <TrailerCard series={series} onChanged={reload} />
+      </div>
       <Episodes series={series} onChanged={reload} />
     </>
   );
@@ -36,8 +41,6 @@ function DetailsForm({ series, onSaved }: { series: AdminSeries; onSaved: () => 
     synopsis: series.synopsis,
     freeEpisodes: String(series.freeEpisodes),
     coinPrice: String(series.coinPrice),
-    coverUrl: series.coverUrl ?? '',
-    bannerUrl: series.bannerUrl ?? '',
   });
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
@@ -53,8 +56,6 @@ function DetailsForm({ series, onSaved }: { series: AdminSeries; onSaved: () => 
           synopsis: form.synopsis.trim(),
           freeEpisodes: Number(form.freeEpisodes),
           coinPrice: Number(form.coinPrice),
-          ...(form.coverUrl.trim() ? { coverUrl: form.coverUrl.trim() } : {}),
-          ...(form.bannerUrl.trim() ? { bannerUrl: form.bannerUrl.trim() } : {}),
         };
         try {
           await adminApi.updateSeries(series.id, patch);
@@ -83,15 +84,6 @@ function DetailsForm({ series, onSaved }: { series: AdminSeries; onSaved: () => 
           <input type="number" min={0} value={form.coinPrice} onChange={set('coinPrice')} />
         </label>
       </div>
-      {/* Image uploads to R2 come later; for now paste a hosted image URL. */}
-      <label>
-        Cover image URL (vertical 3:4)
-        <input type="url" value={form.coverUrl} onChange={set('coverUrl')} />
-      </label>
-      <label>
-        Banner image URL (wide)
-        <input type="url" value={form.bannerUrl} onChange={set('bannerUrl')} />
-      </label>
       {message && <p className={message.error ? 'error' : 'success'}>{message.text}</p>}
       <button type="submit" className="primary">
         Save details
@@ -166,6 +158,7 @@ function Episodes({ series, onChanged }: { series: AdminSeries; onChanged: () =>
               <th>Status</th>
               <th>Video</th>
               <th>New upload</th>
+              <th>Subtitles</th>
               <th className="num">Length</th>
             </tr>
           </thead>
@@ -178,6 +171,9 @@ function Episodes({ series, onChanged }: { series: AdminSeries; onChanged: () =>
                 </td>
                 <td>{e.videoStatus ?? <span className="muted">none</span>}</td>
                 <td>{e.pendingVideoStatus ?? <span className="muted">none</span>}</td>
+                <td>
+                  <SubtitlesCell episode={e} onChanged={onChanged} />
+                </td>
                 <td className="num">
                   {e.durationSeconds ? `${Math.round(Number(e.durationSeconds))} s` : ''}
                 </td>
@@ -188,6 +184,7 @@ function Episodes({ series, onChanged }: { series: AdminSeries; onChanged: () =>
       )}
       <p className="muted small">
         Cloudflare converts each upload in a minute or two; reload the page to see it turn ready.
+        Replacing an episode's video removes its subtitles, so upload them again afterwards.
       </p>
     </section>
   );

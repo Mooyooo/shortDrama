@@ -68,6 +68,8 @@ export type AdminEpisode = {
   videoStatus: VideoStatus | null;
   pendingVideoStatus: VideoStatus | null;
   durationSeconds: string | null;
+  // Subtitle languages on the current video, e.g. ['en'].
+  subtitles: string[];
 };
 
 export type AdminSeries = {
@@ -81,6 +83,7 @@ export type AdminSeries = {
   coverUrl: string | null;
   bannerUrl: string | null;
   releaseAt: string | null;
+  trailerStatus: VideoStatus | null;
   episodes: AdminEpisode[];
 };
 
