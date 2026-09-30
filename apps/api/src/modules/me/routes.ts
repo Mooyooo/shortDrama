@@ -2,7 +2,9 @@ import type { UnlockResponse, Viewer } from '@shortdrama/shared';
 import { Router } from 'express';
 import type pg from 'pg';
 
+import { withTransaction } from '../../db.js';
 import { requireViewer } from '../auth/sessions.js';
+import { applyChanges, getSnapshot, InvalidChange, parseChanges } from '../library/library.js';
 import { unlockWithCoins } from '../wallet/wallet.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -46,6 +48,28 @@ export function meRoutes(pool: pg.Pool) {
       [res.locals.userId, seriesId],
     );
     res.json({ ok: true, episodeIds: rows.map((r) => r.episode_id) });
+  });
+
+  // My List, likes and watch progress, synced from the app (see library/library.ts).
+  router.get('/library', async (_req, res) => {
+    res.json({ ok: true, library: await getSnapshot(pool, res.locals.userId) });
+  });
+
+  router.post('/library', async (req, res) => {
+    let changes;
+    try {
+      changes = parseChanges((req.body as { changes?: unknown })?.changes);
+    } catch (err) {
+      if (err instanceof InvalidChange) {
+        res.status(400).json({ ok: false, error: err.message });
+        return;
+      }
+      throw err;
+    }
+    const skipped = await withTransaction(pool, (client) =>
+      applyChanges(client, res.locals.userId, changes),
+    );
+    res.json({ ok: true, skipped, library: await getSnapshot(pool, res.locals.userId) });
   });
 
   // Blocking hides that person's comments from this viewer (Apple guideline 1.2).

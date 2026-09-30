@@ -128,3 +128,16 @@ export type ReviewComment = {
   author: { id: string; name: string; banned: boolean };
   episode: { id: string; number: number; seriesTitle: string };
 };
+
+// Library sync (My List, likes, watch progress). Series are identified by slug.
+
+export type LibraryChange =
+  | { type: 'progress'; series: string; episode: number; seconds: number; duration: number; at: string }
+  | { type: 'save'; series: string; saved: boolean; at: string }
+  | { type: 'like'; series: string; episode: number; liked: boolean; at: string };
+
+export type LibrarySnapshot = {
+  progress: { series: string; episode: number; seconds: number; duration: number; updatedAt: string }[];
+  saved: { series: string; savedAt: string }[];
+  likes: { series: string; episode: number }[];
+};
