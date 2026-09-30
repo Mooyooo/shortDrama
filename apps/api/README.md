@@ -1,0 +1,39 @@
+# shortDrama API
+
+Node/Express + Postgres. One stateless service: catalog, playback links, Cloudflare Stream webhooks, admin, and the coin wallet. Design: the System Architecture and Content Pipeline docs linked from `docs/HANDOFF.md`.
+
+## Run locally
+
+Needs Postgres (Homebrew `postgresql@15` works) and two local databases:
+
+```bash
+createdb shortdrama_dev && createdb shortdrama_test
+cp .env.example .env          # set DATABASE_URL; ADMIN_TOKEN to use /v1/admin
+npm run migrate               # apply db/migrations to shortdrama_dev
+npm run dev                   # http://localhost:3101
+npm test                      # uses shortdrama_test (or TEST_DATABASE_URL), wiped each run
+```
+
+Cloudflare settings are optional locally. Routes that need them answer 503 until they are set.
+
+## Endpoints
+
+| Method and path | What it does |
+| --- | --- |
+| `GET /health` | Checks the database connection |
+| `GET /v1/catalog/series` | Live series, cacheable for 60 s |
+| `GET /v1/catalog/series/:slug` | One live series with its episodes, free or locked |
+| `GET /v1/playback/episodes/:id` | Signed Cloudflare Stream HLS link; free episodes only until sign-in exists |
+| `POST /v1/webhooks/stream` | Cloudflare Stream webhook: signature check, then the inbox table |
+| `/v1/admin/*` | Series list, create, edit, publish (with checks), episode upload links. Bearer `ADMIN_TOKEN` for now |
+
+## How money stays correct
+
+`src/modules/wallet/wallet.ts`: append-only `coin_ledger`, balance updated in the same transaction, unique external ids so replays are harmless, and unlocks that lock the wallet row so a double tap charges once. The tests in `test/wallet.test.ts` cover each rule.
+
+## Not built yet
+
+- Viewer sign-in (Sign in with Apple, guest accounts) and the routes that use the wallet
+- RevenueCat and AdMob webhooks
+- Staff accounts for the admin (the shared `ADMIN_TOKEN` is a stopgap)
+- Deployment: systemd unit, Caddy vhost and GitHub Actions deploy, following socialManager (see `docs/INFRA.md`)
