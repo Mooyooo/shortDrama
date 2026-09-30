@@ -3,7 +3,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { creditCoins } from '../src/modules/wallet/wallet.js';
-import { freshDatabase, seedSeries, testApp } from './helpers.js';
+import { ADMIN_TOKEN, freshDatabase, seedSeries, testApp } from './helpers.js';
 
 let pool: pg.Pool;
 let seriesId: string;
@@ -110,5 +110,51 @@ describe('unlocking and playing a locked episode', () => {
     const auth = { Authorization: `Bearer ${guest.token}` };
     await request(testApp(pool)).post('/v1/me/unlocks/not-a-uuid').set(auth).expect(404);
     await request(testApp(pool)).get('/v1/playback/episodes/not-a-uuid').expect(404);
+  });
+});
+
+describe('admin coin grants', () => {
+  it('adds coins once per reference and lets the viewer unlock', async () => {
+    const app = testApp(pool);
+    const admin = { Authorization: `Bearer ${ADMIN_TOKEN}` };
+    const guest = await newGuest();
+    const grant = await request(app)
+      .post(`/v1/admin/users/${guest.id}/coins`)
+      .set(admin)
+      .send({ amount: 50, reference: 'support-ticket-1' })
+      .expect(200);
+    expect(grant.body).toEqual({ ok: true, applied: true, coins: 50 });
+    const retry = await request(app)
+      .post(`/v1/admin/users/${guest.id}/coins`)
+      .set(admin)
+      .send({ amount: 50, reference: 'support-ticket-1' })
+      .expect(200);
+    expect(retry.body).toEqual({ ok: true, applied: false, coins: 50 });
+
+    await request(app)
+      .post(`/v1/me/unlocks/${episodeIds[3]}`)
+      .set('Authorization', `Bearer ${guest.token}`)
+      .expect(200);
+  });
+
+  it('rejects zero, fractions and unknown viewers', async () => {
+    const app = testApp(pool);
+    const admin = { Authorization: `Bearer ${ADMIN_TOKEN}` };
+    const guest = await newGuest();
+    await request(app)
+      .post(`/v1/admin/users/${guest.id}/coins`)
+      .set(admin)
+      .send({ amount: 0, reference: 'x' })
+      .expect(400);
+    await request(app)
+      .post(`/v1/admin/users/${guest.id}/coins`)
+      .set(admin)
+      .send({ amount: 1.5, reference: 'x' })
+      .expect(400);
+    await request(app)
+      .post('/v1/admin/users/00000000-0000-0000-0000-000000000000/coins')
+      .set(admin)
+      .send({ amount: 5, reference: 'x' })
+      .expect(404);
   });
 });

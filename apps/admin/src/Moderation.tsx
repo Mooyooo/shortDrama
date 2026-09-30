@@ -23,7 +23,53 @@ export function Moderation() {
       {data?.comments.map((comment) => (
         <ReviewCard key={comment.id} comment={comment} onDone={reload} />
       ))}
+      <GrantCoins />
     </>
+  );
+}
+
+// Support tool: coins for a viewer (goodwill, contest prizes, testing). The viewer ID is shown on
+// the Profile tab in the app. Recorded in the ledger as an adjustment.
+function GrantCoins() {
+  const [userId, setUserId] = useState('');
+  const [amount, setAmount] = useState('100');
+  const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
+
+  return (
+    <form
+      className="card"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setMessage(null);
+        try {
+          const result = await adminApi.grantCoins(userId.trim(), Number(amount));
+          setMessage({ error: false, text: `Done. The viewer now has ${result.coins} coins.` });
+        } catch (err) {
+          setMessage({ error: true, text: describeError(err) });
+        }
+      }}>
+      <h2>Give coins</h2>
+      <div className="row">
+        <label>
+          Viewer ID (from the app's Profile tab)
+          <input value={userId} onChange={(e) => setUserId(e.target.value)} required />
+        </label>
+        <label>
+          Coins (negative takes coins back)
+          <input
+            type="number"
+            step={1}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            required
+          />
+        </label>
+      </div>
+      {message && <p className={message.error ? 'error' : 'success'}>{message.text}</p>}
+      <button type="submit" className="primary">
+        Give coins
+      </button>
+    </form>
   );
 }
 

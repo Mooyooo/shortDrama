@@ -62,6 +62,12 @@ export const adminApi = {
     call<object>('POST', `/comments/${id}/decision`, { action }),
   banUser: (id: string) => call<object>('POST', `/users/${id}/ban`),
   unbanUser: (id: string) => call<object>('POST', `/users/${id}/unban`),
+  // Each grant gets a fresh reference, so a retried request can't pay twice.
+  grantCoins: (userId: string, amount: number) =>
+    call<{ applied: boolean; coins: number }>('POST', `/users/${userId}/coins`, {
+      amount,
+      reference: crypto.randomUUID(),
+    }),
   createUpload: (seriesId: string, episodeNumber: number) =>
     call<{ uploadUrl: string; streamUid: string }>(
       'POST',

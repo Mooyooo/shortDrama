@@ -6,6 +6,7 @@ import type pg from 'pg';
 import type { Config } from '../../config.js';
 import { withTransaction } from '../../db.js';
 import { DISPLAY_NAME } from '../comments/routes.js';
+import { creditCoins } from '../wallet/wallet.js';
 import { createDirectUpload } from './stream-api.js';
 
 const STATUSES: PublishStatus[] = ['draft', 'ready', 'scheduled', 'published', 'unpublished'];
@@ -341,6 +342,34 @@ export function adminRoutes(pool: pg.Pool, config: Config) {
       return;
     }
     res.json({ ok: true });
+  });
+
+  // Support tool: give (or, with a negative amount, take back) coins, recorded in the ledger as an
+  // adjustment. `reference` makes a retried request harmless; the admin sends a fresh one per grant.
+  router.post('/users/:id/coins', async (req, res) => {
+    const body = req.body as Record<string, unknown>;
+    const amount = body.amount;
+    if (!Number.isInteger(amount) || amount === 0 || Math.abs(amount as number) > 100_000) {
+      throw new BadRequest('amount must be a whole number between -100000 and 100000, not 0');
+    }
+    const reference = text(body, 'reference', { required: true })!;
+    const user = await pool.query('SELECT 1 FROM users WHERE id = $1', [req.params.id]);
+    if (!user.rowCount) {
+      res.status(404).json({ ok: false, error: 'not_found' });
+      return;
+    }
+    const applied = await creditCoins(
+      pool,
+      req.params.id as string,
+      amount as number,
+      'adjustment',
+      `admin:${reference}`,
+    );
+    const wallet = await pool.query<{ balance: number }>(
+      'SELECT balance FROM wallets WHERE user_id = $1',
+      [req.params.id],
+    );
+    res.json({ ok: true, applied, coins: wallet.rows[0].balance });
   });
 
   router.post('/users/:id/unban', async (req, res) => {

@@ -8,7 +8,7 @@ import type {
   Viewer,
 } from '@shortdrama/shared';
 
-import { api } from '@/lib/api';
+import { api, forgetSession } from '@/lib/api';
 import { usingApi } from '@/lib/config';
 
 import {
@@ -91,6 +91,13 @@ export async function fetchViewer(): Promise<Viewer | null> {
   if (!usingApi) return null;
   const { viewer } = await api<{ viewer: Viewer }>('/v1/me', { auth: 'required' });
   return viewer;
+}
+
+// Apple requires in-app account deletion. The server removes the account, coins, unlocks and
+// comments; the next API call starts a fresh guest account.
+export async function deleteAccount() {
+  await api('/v1/me', { method: 'DELETE', auth: 'required' });
+  await forgetSession();
 }
 
 export async function fetchUnlockedEpisodeIds(series: Series): Promise<string[]> {

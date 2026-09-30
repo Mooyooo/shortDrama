@@ -96,6 +96,11 @@ export function toggleLiked(seriesId: string, episode: number) {
   update({ ...current, likes }, { force: true });
 }
 
+// Wipes everything stored on this phone (used when the viewer deletes their account).
+export function clearLibrary() {
+  update(EMPTY, { force: true });
+}
+
 // Flush throttled progress, e.g. when the player closes.
 export function flushLibrary() {
   if (!state) return;
