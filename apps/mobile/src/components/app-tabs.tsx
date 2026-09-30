@@ -14,7 +14,9 @@ export default function AppTabs() {
       labelStyle={{ selected: { color: colors.text } }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>For You</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'play.rectangle', selected: 'play.rectangle.fill' }} />
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'play.rectangle', selected: 'play.rectangle.fill' }}
+        />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="discover">

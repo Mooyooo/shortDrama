@@ -1,16 +1,20 @@
-// Placeholder catalog until the backend exists (Phase 2).
-// Videos are public HLS test streams; they are landscape, so the feed crops them to fill.
+// The app's catalog types, and the built-in sample data used when no API is configured
+// (see src/lib/config.ts). Sample videos are public HLS test streams; they are landscape, so the
+// feed crops them to fill.
 
 export type Series = {
+  // The series slug: stable in links, the same in sample and API modes.
   id: string;
+  // The API's own id for the series; absent for sample data.
+  uuid?: string;
   title: string;
   synopsis: string;
   tags: string[];
   episodeCount: number;
   freeEpisodes: number;
-  // Sample price per locked episode; real prices come from the backend.
+  // Price per locked episode.
   coinPrice: number;
-  trailerUrl: string;
+  trailerUrl: string | null;
 };
 
 export const SAMPLE_SERIES: Series[] = [
@@ -70,21 +74,27 @@ export const SAMPLE_SERIES: Series[] = [
 ];
 
 export type Episode = {
+  // The API's episode id, or `${seriesId}:${number}` for sample data.
+  id: string;
   number: number;
-  // Display only: the backend decides what a user may actually watch.
+  // Display only: the backend decides what a viewer may actually watch.
   free: boolean;
-  videoUrl: string;
+  coinPrice: number;
+  // Sample data only; with the API the player asks for a signed link instead.
+  videoUrl?: string;
 };
 
-export function getSeries(id: string): Series | undefined {
+export function getSampleSeries(id: string): Series | undefined {
   return SAMPLE_SERIES.find((s) => s.id === id);
 }
 
-// No per-episode videos yet, so every episode reuses the trailer stream.
-export function getEpisodes(series: Series): Episode[] {
+// Sample episodes all reuse the series trailer stream.
+export function getSampleEpisodes(series: Series): Episode[] {
   return Array.from({ length: series.episodeCount }, (_, i) => ({
+    id: `${series.id}:${i + 1}`,
     number: i + 1,
     free: i < series.freeEpisodes,
-    videoUrl: series.trailerUrl,
+    coinPrice: series.coinPrice,
+    videoUrl: series.trailerUrl ?? undefined,
   }));
 }

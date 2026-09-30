@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Episode } from '@/data/catalog';
+import { useEpisodeUrl } from '@/data/hooks';
 
 type Props = {
   episode: Episode;
@@ -26,7 +27,9 @@ export function EpisodePlayer({
   const [pausedByUser, setPausedByUser] = useState(false);
   const [wasActive, setWasActive] = useState(isActive);
   const [progress, setProgress] = useState(0);
-  const player = useVideoPlayer(episode.videoUrl, (p) => {
+  // With the API this fetches a signed link; the player starts once it arrives.
+  const { data: url, error, reload } = useEpisodeUrl(episode, true);
+  const player = useVideoPlayer(url ?? null, (p) => {
     p.loop = false;
     p.timeUpdateEventInterval = 1;
     p.currentTime = startAt;
@@ -63,7 +66,12 @@ export function EpisodePlayer({
         contentFit="cover"
         nativeControls={false}
       />
-      {status === 'loading' && (
+      {error ? (
+        <Pressable style={styles.center} onPress={reload}>
+          <Text style={styles.errorText}>{"Couldn't load this episode. Tap to retry."}</Text>
+        </Pressable>
+      ) : null}
+      {!error && (status === 'loading' || !url) && (
         <ActivityIndicator style={styles.center} color="#fff" size="large" />
       )}
       {pausedByUser && <Text style={[styles.center, styles.playIcon]}>▶</Text>}
@@ -83,6 +91,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignSelf: 'center',
     top: '45%',
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: 15,
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
   playIcon: {
     color: 'rgba(255,255,255,0.85)',

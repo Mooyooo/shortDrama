@@ -11,7 +11,7 @@ export function useColorScheme() {
   const hasHydrated = useSyncExternalStore(
     subscribe,
     () => true,
-    () => false
+    () => false,
   );
 
   const colorScheme = useRNColorScheme();

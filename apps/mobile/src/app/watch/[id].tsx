@@ -2,7 +2,15 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View, type ViewToken } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ViewToken,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActionRail } from '@/components/action-rail';
@@ -11,19 +19,36 @@ import { EpisodeDrawer } from '@/components/episode-drawer';
 import { EpisodePlayer } from '@/components/episode-player';
 import { UnlockSheet } from '@/components/unlock-sheet';
 import { Spacing } from '@/constants/theme';
-import { getEpisodes, getSeries, type Episode, type Series } from '@/data/catalog';
+import type { Episode, Series } from '@/data/catalog';
+import { useSeries, useUnlockedEpisodeIds, useViewer } from '@/data/hooks';
+import { unlockEpisode } from '@/data/source';
+import { invalidate } from '@/data/use-resource';
 import { flushLibrary, getProgress, saveProgress } from '@/lib/library';
 
 const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 80 };
 
 export default function WatchScreen() {
   const { id, ep } = useLocalSearchParams<{ id: string; ep?: string }>();
-  const series = getSeries(id);
+  const { data, error, loading, reload } = useSeries(id);
 
-  if (!series) {
+  if (loading) {
     return (
       <View style={styles.missing}>
-        <Text style={styles.missingText}>This series is not available.</Text>
+        <ActivityIndicator color="#fff" size="large" />
+      </View>
+    );
+  }
+  if (error || !data) {
+    return (
+      <View style={styles.missing}>
+        <Text style={styles.missingText}>
+          {error ? "Couldn't load this series." : 'This series is not available.'}
+        </Text>
+        {error ? (
+          <Pressable onPress={reload}>
+            <Text style={styles.missingLink}>Try again</Text>
+          </Pressable>
+        ) : null}
         <Pressable onPress={() => router.back()}>
           <Text style={styles.missingLink}>Go back</Text>
         </Pressable>
@@ -31,13 +56,29 @@ export default function WatchScreen() {
     );
   }
   const requested = Number(ep) || 1;
-  const start = Math.min(Math.max(requested, 1), series.episodeCount);
-  return <Watch series={series} startEpisode={start} />;
+  const start = Math.min(Math.max(requested, 1), data.episodes.length || 1);
+  return <Watch series={data.series} episodes={data.episodes} startEpisode={start} />;
 }
 
-function Watch({ series, startEpisode }: { series: Series; startEpisode: number }) {
+function Watch({
+  series,
+  episodes,
+  startEpisode,
+}: {
+  series: Series;
+  episodes: Episode[];
+  startEpisode: number;
+}) {
   const insets = useSafeAreaInsets();
-  const episodes = getEpisodes(series);
+  const unlocks = useUnlockedEpisodeIds(series);
+  const viewer = useViewer();
+  const unlocked = new Set(unlocks.data ?? []);
+  const playable = (e: Episode) => e.free || unlocked.has(e.id);
+  // The viewability callback must keep one identity, so it reads the latest unlocks from a ref.
+  const unlockedRef = useRef(unlocked);
+  useEffect(() => {
+    unlockedRef.current = unlocked;
+  });
   const listRef = useRef<FlatList<Episode>>(null);
   const [height, setHeight] = useState(0);
   const [activeIndex, setActiveIndex] = useState(startEpisode - 1);
@@ -51,7 +92,14 @@ function Watch({ series, startEpisode }: { series: Series; startEpisode: number 
     return saved?.episode === startEpisode && !nearEnd ? saved.seconds : 0;
   });
 
-  useEffect(() => flushLibrary, []);
+  useEffect(
+    () => () => {
+      flushLibrary();
+      // Signed links expire after a few hours; fetch fresh ones next time.
+      invalidate('episode-url:');
+    },
+    [],
+  );
 
   // FlatList throws if this callback changes identity after mount.
   const onViewableItemsChanged = useCallback(
@@ -63,7 +111,9 @@ function Watch({ series, startEpisode }: { series: Series; startEpisode: number 
         saveProgress(series.id, first.item.number, 0, 0);
       }
       // Landing on a locked episode offers the unlock options straight away, as DramaBox does.
-      if (!first.item.free) setUnlockFor(first.item.number);
+      if (!first.item.free && !unlockedRef.current.has(first.item.id)) {
+        setUnlockFor(first.item.number);
+      }
     },
     [series.id],
   );
@@ -81,9 +131,10 @@ function Watch({ series, startEpisode }: { series: Series; startEpisode: number 
         <FlatList<Episode>
           ref={listRef}
           data={episodes}
-          keyExtractor={(item) => String(item.number)}
+          keyExtractor={(item) => item.id}
+          extraData={unlocks.data}
           renderItem={({ item, index }) =>
-            item.free ? (
+            playable(item) ? (
               <EpisodePlayer
                 episode={item}
                 height={height}
@@ -163,13 +214,28 @@ function Watch({ series, startEpisode }: { series: Series; startEpisode: number 
       />
       <CommentsSheet
         visible={commentsOpen}
-        episode={active?.number ?? startEpisode}
+        episode={active ?? null}
+        episodeNumber={active?.number ?? startEpisode}
         onClose={() => setCommentsOpen(false)}
       />
       <UnlockSheet
         visible={unlockFor != null}
         episodeNumber={unlockFor ?? 0}
-        coinPrice={series.coinPrice}
+        coinPrice={episodes[(unlockFor ?? 1) - 1]?.coinPrice ?? series.coinPrice}
+        coins={viewer.data?.coins}
+        onUnlock={
+          viewer.data
+            ? async () => {
+                const episode = episodes[(unlockFor ?? 1) - 1];
+                const result = await unlockEpisode(episode);
+                if (result.ok) {
+                  unlocks.reload();
+                  viewer.reload();
+                }
+                return result;
+              }
+            : undefined
+        }
         onClose={() => setUnlockFor(null)}
       />
     </View>

@@ -2,13 +2,22 @@ import { router, Stack, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Poster } from '@/components/poster';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { getEpisodes, getSeries, type Series } from '@/data/catalog';
+import type { Episode, Series } from '@/data/catalog';
+import { useSeries, useUnlockedEpisodeIds } from '@/data/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import { toggleSaved, useLibrary } from '@/lib/library';
 
@@ -16,20 +25,30 @@ const EPISODE_COLUMNS = 6;
 
 export default function SeriesDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const series = getSeries(id);
+  const { data, error, loading, reload } = useSeries(id);
 
-  if (!series) {
+  if (loading || error || !data) {
     return (
       <ThemedView style={styles.notFound}>
         <Stack.Screen options={{ title: '' }} />
-        <ThemedText themeColor="textSecondary">This series is not available.</ThemedText>
+        {loading ? (
+          <ActivityIndicator />
+        ) : error ? (
+          <Pressable onPress={reload}>
+            <ThemedText themeColor="textSecondary">
+              {"Couldn't load this series. Tap to retry."}
+            </ThemedText>
+          </Pressable>
+        ) : (
+          <ThemedText themeColor="textSecondary">This series is not available.</ThemedText>
+        )}
       </ThemedView>
     );
   }
-  return <SeriesDetail series={series} />;
+  return <SeriesDetail series={data.series} episodes={data.episodes} />;
 }
 
-function SeriesDetail({ series }: { series: Series }) {
+function SeriesDetail({ series, episodes }: { series: Series; episodes: Episode[] }) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const library = useLibrary();
@@ -40,10 +59,10 @@ function SeriesDetail({ series }: { series: Series }) {
   const posterWidth = Math.round(width * 0.4);
   const cellSize =
     (width - Spacing.three * 2 - Spacing.two * (EPISODE_COLUMNS - 1)) / EPISODE_COLUMNS;
-  const episodes = getEpisodes(series);
+  const unlocked = new Set(useUnlockedEpisodeIds(series).data ?? []);
   const play = (episodeNumber: number) =>
     router.push({ pathname: '/watch/[id]', params: { id: series.id, ep: String(episodeNumber) } });
-  // Muted looping trailer stands in for a poster until we have artwork.
+  // A muted looping trailer stands in for poster artwork; series without one show the poster.
   const player = useVideoPlayer(series.trailerUrl, (p) => {
     p.loop = true;
     p.muted = true;
@@ -78,12 +97,16 @@ function SeriesDetail({ series }: { series: Series }) {
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.four }}>
         {/* Vertical poster beside the details: everything in the app stays portrait. */}
         <View style={styles.header}>
-          <VideoView
-            player={player}
-            style={[styles.poster, { width: posterWidth }]}
-            contentFit="cover"
-            nativeControls={false}
-          />
+          {series.trailerUrl ? (
+            <VideoView
+              player={player}
+              style={[styles.poster, { width: posterWidth }]}
+              contentFit="cover"
+              nativeControls={false}
+            />
+          ) : (
+            <Poster series={series} width={posterWidth} />
+          )}
           <View style={styles.headerText}>
             <ThemedText type="subtitle" style={styles.title}>
               {series.title}
@@ -125,7 +148,7 @@ function SeriesDetail({ series }: { series: Series }) {
                   type="backgroundElement"
                   style={[styles.episode, { width: cellSize, height: cellSize }]}>
                   <ThemedText type="smallBold">{episode.number}</ThemedText>
-                  {!episode.free && (
+                  {!episode.free && !unlocked.has(episode.id) && (
                     <SymbolView
                       name="lock.fill"
                       size={10}

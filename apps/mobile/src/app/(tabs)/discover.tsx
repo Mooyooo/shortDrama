@@ -1,34 +1,48 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colorFor, Poster } from '@/components/poster';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
-import { SAMPLE_SERIES, type Series } from '@/data/catalog';
+import type { Series } from '@/data/catalog';
+import { useSeriesList } from '@/data/hooks';
 
 const POSTER_WIDTH = 108;
 const ALL = 'All';
 
-// Sample orderings until the API's Discover collections (Trending, New, Top) are wired in.
-const ROWS: { title: string; series: Series[] }[] = [
-  { title: 'Trending', series: SAMPLE_SERIES },
-  { title: 'New', series: [...SAMPLE_SERIES].reverse() },
-  { title: 'Top', series: [...SAMPLE_SERIES].sort((a, b) => b.episodeCount - a.episodeCount) },
-];
-const GENRES = [ALL, ...new Set(SAMPLE_SERIES.flatMap((s) => s.tags))];
+// Stand-in orderings until the API's Discover collections (Trending, New, Top) are wired in.
+// The API lists newest first, so "New" keeps its order.
+function rowsFor(all: Series[]): { title: string; series: Series[] }[] {
+  return [
+    { title: 'Trending', series: all },
+    { title: 'New', series: all },
+    { title: 'Top', series: [...all].sort((a, b) => b.episodeCount - a.episodeCount) },
+  ];
+}
 
 const openSeries = (series: Series) =>
   router.push({ pathname: '/series/[id]', params: { id: series.id } });
 
 export default function DiscoverScreen() {
   const [genre, setGenre] = useState(ALL);
+  const catalog = useSeriesList();
+  const all = catalog.data ?? [];
+  const genres = [ALL, ...new Set(all.flatMap((s) => s.tags))];
   const matches = (s: Series) => genre === ALL || s.tags.includes(genre);
-  const rows = ROWS.map((row) => ({ ...row, series: row.series.filter(matches) })).filter(
-    (row) => row.series.length > 0,
-  );
+  const rows = rowsFor(all)
+    .map((row) => ({ ...row, series: row.series.filter(matches) }))
+    .filter((row) => row.series.length > 0);
 
   return (
     <ThemedView style={styles.container}>
@@ -37,12 +51,20 @@ export default function DiscoverScreen() {
           <ThemedText type="subtitle" style={styles.inset}>
             Discover
           </ThemedText>
-          <Banners series={SAMPLE_SERIES.slice(0, 3)} />
+          {catalog.loading && <ActivityIndicator />}
+          {catalog.error ? (
+            <Pressable onPress={catalog.reload} style={styles.inset}>
+              <ThemedText themeColor="textSecondary">
+                {"Couldn't load Discover. Tap to retry."}
+              </ThemedText>
+            </Pressable>
+          ) : null}
+          {all.length > 0 && <Banners series={all.slice(0, 3)} />}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.chips}>
-            {GENRES.map((name) => (
+            {genres.map((name) => (
               <Pressable key={name} onPress={() => setGenre(name)}>
                 <ThemedView
                   type={genre === name ? 'backgroundSelected' : 'backgroundElement'}

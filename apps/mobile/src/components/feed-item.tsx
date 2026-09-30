@@ -6,8 +6,10 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { ActionRail } from '@/components/action-rail';
 import { CommentsSheet } from '@/components/comments-sheet';
+import { Poster } from '@/components/poster';
 import { Spacing } from '@/constants/theme';
 import type { Series } from '@/data/catalog';
+import { useSeries } from '@/data/hooks';
 
 type Props = {
   series: Series;
@@ -21,6 +23,8 @@ export function FeedItem({ series, height, isActive, bottomInset }: Props) {
   const [pausedByUser, setPausedByUser] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [wasActive, setWasActive] = useState(isActive);
+  // Episode 1's comments need its id, so the series loads only once comments open.
+  const detail = useSeries(series.id, commentsOpen);
   const player = useVideoPlayer(series.trailerUrl, (p) => {
     p.loop = true;
   });
@@ -55,12 +59,19 @@ export function FeedItem({ series, height, isActive, bottomInset }: Props) {
 
   return (
     <Pressable style={[styles.container, { height }]} onPress={() => setPausedByUser((v) => !v)}>
-      <VideoView
-        player={player}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        nativeControls={false}
-      />
+      {series.trailerUrl ? (
+        <VideoView
+          player={player}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          nativeControls={false}
+        />
+      ) : (
+        // No trailer uploaded yet: show the poster instead of a black screen.
+        <View style={styles.noTrailer}>
+          <Poster series={series} width={200} />
+        </View>
+      )}
 
       {status === 'loading' && (
         <ActivityIndicator style={styles.center} color="#fff" size="large" />
@@ -90,7 +101,12 @@ export function FeedItem({ series, height, isActive, bottomInset }: Props) {
           onComments={() => setCommentsOpen(true)}
         />
       </View>
-      <CommentsSheet visible={commentsOpen} episode={1} onClose={() => setCommentsOpen(false)} />
+      <CommentsSheet
+        visible={commentsOpen}
+        episode={detail.data?.episodes[0] ?? null}
+        episodeNumber={1}
+        onClose={() => setCommentsOpen(false)}
+      />
     </Pressable>
   );
 }
@@ -99,6 +115,16 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     backgroundColor: '#000',
+  },
+  noTrailer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 160,
   },
   center: {
     position: 'absolute',

@@ -7,11 +7,16 @@ import { Poster } from '@/components/poster';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
-import { getSeries, type Series } from '@/data/catalog';
+import type { Series } from '@/data/catalog';
+import { useSeriesList } from '@/data/hooks';
 import { useLibrary, type SeriesProgress } from '@/lib/library';
 
 export default function MyListScreen() {
   const library = useLibrary();
+  // My List stores series ids; titles and details come from the catalog.
+  const catalog = useSeriesList();
+  const byId = new Map((catalog.data ?? []).map((s) => [s.id, s]));
+  const getSeries = (id: string) => byId.get(id);
 
   const continueWatching = Object.entries(library.progress)
     .sort(([, a], [, b]) => b.updatedAt - a.updatedAt)
