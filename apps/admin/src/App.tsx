@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 
 import { getToken, setToken } from './api';
+import { Moderation } from './Moderation';
 import { SeriesEditor } from './SeriesEditor';
 import { SeriesList } from './SeriesList';
 
-// Two screens, addressed by the URL hash so the browser's back button works:
-// #/ (series list) and #/series/<id> (editor).
+// Three screens, addressed by the URL hash so the browser's back button works:
+// #/ (series list), #/series/<id> (editor) and #/moderation (reported comments).
 function useHashRoute() {
   const [hash, setHash] = useState(() => window.location.hash);
   useEffect(() => {
@@ -14,7 +15,9 @@ function useHashRoute() {
     return () => window.removeEventListener('hashchange', onChange);
   }, []);
   const match = /^#\/series\/([\w-]+)$/.exec(hash);
-  return match ? { screen: 'series' as const, id: match[1] } : { screen: 'list' as const };
+  if (match) return { screen: 'series' as const, id: match[1] };
+  if (hash === '#/moderation') return { screen: 'moderation' as const };
+  return { screen: 'list' as const };
 }
 
 export function App() {
@@ -35,9 +38,13 @@ export function App() {
   return (
     <div className="shell">
       <header className="topbar">
-        <a href="#/" className="brand">
-          shortDrama Admin
-        </a>
+        <nav className="nav">
+          <a href="#/" className="brand">
+            shortDrama Admin
+          </a>
+          <a href="#/">Series</a>
+          <a href="#/moderation">Moderation</a>
+        </nav>
         <button
           className="link"
           onClick={() => {
@@ -48,7 +55,9 @@ export function App() {
         </button>
       </header>
       <main className="page">
-        {route.screen === 'series' ? <SeriesEditor id={route.id} /> : <SeriesList />}
+        {route.screen === 'series' && <SeriesEditor id={route.id} />}
+        {route.screen === 'moderation' && <Moderation />}
+        {route.screen === 'list' && <SeriesList />}
       </main>
     </div>
   );

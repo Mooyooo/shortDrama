@@ -3,6 +3,7 @@ import type {
   AdminSeriesPatch,
   AdminSeriesSummary,
   ApiError,
+  ReviewComment,
 } from '@shortdrama/shared';
 
 // The admin token lives only in this browser tab's session, until staff accounts exist.
@@ -56,6 +57,11 @@ export const adminApi = {
     call<{ id: string }>('POST', '/series', input),
   updateSeries: (id: string, patch: AdminSeriesPatch) =>
     call<object>('PATCH', `/series/${id}`, patch),
+  reviewComments: () => call<{ comments: ReviewComment[] }>('GET', '/comments/review'),
+  decideComment: (id: string, action: 'keep' | 'remove') =>
+    call<object>('POST', `/comments/${id}/decision`, { action }),
+  banUser: (id: string) => call<object>('POST', `/users/${id}/ban`),
+  unbanUser: (id: string) => call<object>('POST', `/users/${id}/unban`),
   createUpload: (seriesId: string, episodeNumber: number) =>
     call<{ uploadUrl: string; streamUid: string }>(
       'POST',

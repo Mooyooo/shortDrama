@@ -280,3 +280,36 @@ th {
 .upload-failed {
   color: var(--danger);
 }
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.nav a:not(.brand) {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.review-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.review-body {
+  margin: 0;
+  padding: 12px 16px;
+  border-left: 3px solid var(--border);
+  font-size: 16px;
+  white-space: pre-wrap;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
