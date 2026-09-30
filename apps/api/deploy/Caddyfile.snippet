@@ -1,0 +1,17 @@
+# Appended to /etc/caddy/Caddyfile on Boston by deploy/setup-boston.sh.
+# The admin and the API share one origin under the admin host (no CORS); the app uses the API host.
+
+sd-api.scaleagentmax.ai {
+	reverse_proxy 127.0.0.1:3101
+}
+
+sd-admin.scaleagentmax.ai {
+	handle /v1/* {
+		reverse_proxy 127.0.0.1:3101
+	}
+	handle {
+		root * /var/www/shortdrama-admin
+		try_files {path} /index.html
+		file_server
+	}
+}

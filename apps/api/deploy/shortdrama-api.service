@@ -1,0 +1,22 @@
+# /etc/systemd/system/shortdrama-api.service on Boston (installed by deploy/setup-boston.sh).
+[Unit]
+Description=shortDrama API
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/shortdrama-api/current
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node --env-file=/var/www/shortdrama-api/shared/.env dist/index.js
+Restart=on-failure
+RestartSec=5
+# The API only needs to read its release and talk to the network.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

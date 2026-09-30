@@ -25,6 +25,8 @@ export function loadConfig() {
   return {
     devSampleVideos,
     port: Number(optional('PORT') ?? 3101),
+    // 0.0.0.0 locally so a phone on the same Wi-Fi can reach it; 127.0.0.1 on servers, behind Caddy.
+    host: optional('HOST') ?? '0.0.0.0',
     databaseUrl: required('DATABASE_URL'),
     adminToken: optional('ADMIN_TOKEN'),
     stream: {

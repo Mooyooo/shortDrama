@@ -9,8 +9,8 @@ const config = loadConfig();
 const pool = createPool(config.databaseUrl);
 const app = createApp(pool, config);
 
-const server = app.listen(config.port, () => {
-  console.log(`shortDrama API listening on :${config.port}`);
+const server = app.listen(config.port, config.host, () => {
+  console.log(`shortDrama API listening on ${config.host}:${config.port}`);
 });
 
 // Applies queued webhooks. Runs in every API process; SKIP LOCKED keeps them from colliding.
